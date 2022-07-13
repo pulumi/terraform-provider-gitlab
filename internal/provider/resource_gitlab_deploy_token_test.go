@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -11,16 +14,13 @@ import (
 )
 
 func TestAccGitlabDeployToken_basic(t *testing.T) {
-	testAccCheck(t)
-
 	var projectDeployToken gitlab.DeployToken
 	var groupDeployToken gitlab.DeployToken
 
 	testProject := testAccCreateProject(t)
 	testGroup := testAccCreateGroups(t, 1)[0]
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabDeployTokenDestroy,
 		Steps: []resource.TestStep{
@@ -52,13 +52,10 @@ func TestAccGitlabDeployToken_basic(t *testing.T) {
 	})
 }
 func TestAccGitlabDeployToken_pagination(t *testing.T) {
-	testAccCheck(t)
-
 	testGroup := testAccCreateGroups(t, 1)[0]
 	testProject := testAccCreateProject(t)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabDeployTokenDestroy,
 		Steps: []resource.TestStep{
@@ -244,6 +241,8 @@ type expiresAtSuppressFuncTest struct {
 }
 
 func TestExpiresAtSuppressFunc(t *testing.T) {
+	t.Parallel()
+
 	testcases := []expiresAtSuppressFuncTest{
 		{
 			description: "same dates without millis",

@@ -106,10 +106,14 @@ var resourceGitLabProjectSchema = map[string]*schema.Schema{
 		Default:     true,
 	},
 	"approvals_before_merge": {
-		Description: "Number of merge request approvals required for merging. Default is 0.",
-		Type:        schema.TypeInt,
-		Optional:    true,
-		Default:     0,
+		Description: `Number of merge request approvals required for merging. Default is 0.
+  This field **does not** work well in combination with the ` + "`gitlab_project_approval_rule`" + ` resource
+  and is most likely gonna be deprecated in a future GitLab version (see [this upstream epic](https://gitlab.com/groups/gitlab-org/-/epics/7572)).
+  In the meantime we recommend against using this attribute and use ` + "`gitlab_project_approval_rule`" + ` instead.
+`,
+		Type:     schema.TypeInt,
+		Optional: true,
+		Default:  0,
 	},
 	"wiki_enabled": {
 		Description: "Enable wiki for the project.",
@@ -368,9 +372,10 @@ var resourceGitLabProjectSchema = map[string]*schema.Schema{
 		//RequiredWith: []string{"import_url"},
 	},
 	"build_coverage_regex": {
-		Description: "Test coverage parsing for the project.",
+		Description: "Test coverage parsing for the project. This is deprecated feature in GitLab 15.0.",
 		Type:        schema.TypeString,
 		Optional:    true,
+		Deprecated:  "build_coverage_regex is removed in GitLab 15.0.",
 	},
 	"issues_template": {
 		Description: "Sets the template for new issues in the project.",
@@ -585,6 +590,12 @@ var resourceGitLabProjectSchema = map[string]*schema.Schema{
 		Type:        schema.TypeString,
 		Optional:    true,
 	},
+	"ci_default_git_depth": {
+		Description: "Default number of revisions for shallow cloning.",
+		Type:        schema.TypeInt,
+		Optional:    true,
+		Computed:    true,
+	},
 }
 
 var validContainerExpirationPolicyAttributesCadenceValues = []string{
@@ -645,6 +656,13 @@ var _ = registerResource("gitlab_project", func() *schema.Resource {
 
 A project can either be created in a group or user namespace.
 
+-> **Default Branch Protection Workaround** Projects are created with default branch protection.
+Since this default branch protection is not currently managed via Terraform, to workaround this limitation,
+you can remove the default branch protection via the API and create your desired Terraform managed branch protection.
+In the ` + "`gitlab_project`" + ` resource, define a ` + "`local-exec`" + ` provisioner which invokes
+the ` + "`/projects/:id/protected_branches/:name`" + ` API via curl to delete the branch protection on the default
+branch using a ` + "`DELETE`" + ` request. Then define the desired branch protection using the ` + "`gitlab_branch_protection`" + ` resource.
+
 **Upstream API**: [GitLab REST API docs](https://docs.gitlab.com/ce/api/projects.html)`,
 
 		CreateContext: resourceGitlabProjectCreate,
@@ -654,7 +672,20 @@ A project can either be created in a group or user namespace.
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
-		Schema: resourceGitLabProjectSchema,
+		Schema: constructSchema(resourceGitLabProjectSchema, map[string]*schema.Schema{
+			"skip_wait_for_default_branch_protection": {
+				Description: `If ` + "`true`" + `, the default behavior to wait for the default branch protection to be created is skipped.
+This is necessary if the current user is not an admin and the default branch protection is disabled on an instance-level.
+There is currently no known way to determine if the default branch protection is disabled on an instance-level for non-admin users.
+This attribute is only used during resource creation, thus changes are suppressed and the attribute cannot be imported.
+`,
+				Type:     schema.TypeBool,
+				Optional: true,
+				DiffSuppressFunc: func(string, string, string, *schema.ResourceData) bool {
+					return true
+				},
+			},
+		}),
 		CustomizeDiff: customdiff.All(
 			customdiff.ComputedIf("path_with_namespace", namespaceOrPathChanged),
 			customdiff.ComputedIf("ssh_url_to_repo", namespaceOrPathChanged),
@@ -664,7 +695,7 @@ A project can either be created in a group or user namespace.
 	}
 })
 
-func resourceGitlabProjectSetToState(client *gitlab.Client, d *schema.ResourceData, project *gitlab.Project) error {
+func resourceGitlabProjectSetToState(ctx context.Context, client *gitlab.Client, d *schema.ResourceData, project *gitlab.Project) error {
 	d.SetId(fmt.Sprintf("%d", project.ID))
 	d.Set("name", project.Name)
 	d.Set("path", project.Path)
@@ -695,7 +726,7 @@ func resourceGitlabProjectSetToState(client *gitlab.Client, d *schema.ResourceDa
 		return err
 	}
 	d.Set("archived", project.Archived)
-	if supportsSquashOption, err := isGitLabVersionAtLeast(client, "14.1")(); err != nil {
+	if supportsSquashOption, err := isGitLabVersionAtLeast(ctx, client, "14.1")(); err != nil {
 		return err
 	} else if supportsSquashOption {
 		d.Set("squash_option", project.SquashOption)
@@ -708,7 +739,6 @@ func resourceGitlabProjectSetToState(client *gitlab.Client, d *schema.ResourceDa
 	d.Set("mirror_trigger_builds", project.MirrorTriggerBuilds)
 	d.Set("mirror_overwrites_diverged_branches", project.MirrorOverwritesDivergedBranches)
 	d.Set("only_mirror_protected_branches", project.OnlyMirrorProtectedBranches)
-	d.Set("build_coverage_regex", project.BuildCoverageRegex)
 	d.Set("issues_template", project.IssuesTemplate)
 	d.Set("merge_requests_template", project.MergeRequestsTemplate)
 	d.Set("ci_config_path", project.CIConfigPath)
@@ -746,6 +776,12 @@ func resourceGitlabProjectSetToState(client *gitlab.Client, d *schema.ResourceDa
 	d.Set("wiki_access_level", string(project.WikiAccessLevel))
 	d.Set("squash_commit_template", project.SquashCommitTemplate)
 	d.Set("merge_commit_template", project.MergeCommitTemplate)
+
+	//Note: This field is deprecated and will always be an empty string starting in GitLab 15.0.
+	d.Set("build_coverage_regex", project.BuildCoverageRegex)
+
+	d.Set("ci_default_git_depth", project.CIDefaultGitDepth)
+
 	return nil
 }
 
@@ -774,9 +810,12 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		PrintingMergeRequestLinkEnabled:           gitlab.Bool(d.Get("printing_merge_request_link_enabled").(bool)),
 		Mirror:                                    gitlab.Bool(d.Get("mirror").(bool)),
 		MirrorTriggerBuilds:                       gitlab.Bool(d.Get("mirror_trigger_builds").(bool)),
-		BuildCoverageRegex:                        gitlab.String(d.Get("build_coverage_regex").(string)),
 		CIConfigPath:                              gitlab.String(d.Get("ci_config_path").(string)),
 		CIForwardDeploymentEnabled:                gitlab.Bool(d.Get("ci_forward_deployment_enabled").(bool)),
+	}
+
+	if v, ok := d.GetOk("build_coverage_regex"); ok {
+		options.BuildCoverageRegex = gitlab.String(v.(string))
 	}
 
 	if v, ok := d.GetOk("path"); ok {
@@ -799,7 +838,9 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.TagList = stringSetToStringSlice(v.(*schema.Set))
 	}
 
-	if v, ok := d.GetOk("initialize_with_readme"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("initialize_with_readme"); ok {
 		options.InitializeWithReadme = gitlab.Bool(v.(bool))
 	}
 
@@ -815,7 +856,9 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.TemplateProjectID = gitlab.Int(v.(int))
 	}
 
-	if v, ok := d.GetOk("use_custom_template"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("use_custom_template"); ok {
 		options.UseCustomTemplate = gitlab.Bool(v.(bool))
 	}
 
@@ -831,7 +874,9 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.CIConfigPath = gitlab.String(v.(string))
 	}
 
-	if v, ok := d.GetOk("resolve_outdated_diff_discussions"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("resolve_outdated_diff_discussions"); ok {
 		options.ResolveOutdatedDiffDiscussions = gitlab.Bool(v.(bool))
 	}
 
@@ -847,11 +892,15 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.AutoDevopsDeployStrategy = gitlab.String(v.(string))
 	}
 
-	if v, ok := d.GetOk("auto_devops_enabled"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("auto_devops_enabled"); ok {
 		options.AutoDevopsEnabled = gitlab.Bool(v.(bool))
 	}
 
-	if v, ok := d.GetOk("autoclose_referenced_issues"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("autoclose_referenced_issues"); ok {
 		options.AutocloseReferencedIssues = gitlab.Bool(v.(bool))
 	}
 
@@ -875,7 +924,9 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.ContainerRegistryAccessLevel = stringToAccessControlValue(v.(string))
 	}
 
-	if v, ok := d.GetOk("emails_disabled"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("emails_disabled"); ok {
 		options.EmailsDisabled = gitlab.Bool(v.(bool))
 	}
 
@@ -899,7 +950,9 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.OperationsAccessLevel = stringToAccessControlValue(v.(string))
 	}
 
-	if v, ok := d.GetOk("public_builds"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("public_builds"); ok {
 		options.PublicBuilds = gitlab.Bool(v.(bool))
 	}
 
@@ -939,7 +992,7 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		options.MergeCommitTemplate = gitlab.String(v.(string))
 	}
 
-	if supportsSquashOption, err := isGitLabVersionAtLeast(client, "14.1")(); err != nil {
+	if supportsSquashOption, err := isGitLabVersionAtLeast(ctx, client, "14.1")(); err != nil {
 		return diag.FromErr(err)
 	} else if supportsSquashOption {
 		if v, ok := d.GetOk("squash_option"); ok {
@@ -1005,107 +1058,125 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		}
 	}
 
-	// default_branch cannot always be set during creation.
-	// If the branch does not exist, the update will fail, so we also create it here.
-	// See: https://gitlab.com/gitlab-org/gitlab/-/issues/333426
-	// This logic may be removed when the above issue is resolved.
-	if v, ok := d.GetOk("default_branch"); ok && project.DefaultBranch != "" && project.DefaultBranch != v.(string) {
-		oldDefaultBranch := project.DefaultBranch
-		newDefaultBranch := v.(string)
+	// see: https://gitlab.com/gitlab-org/gitlab/-/issues/333426
+	noDefaultBranchAPISupport, err := isGitLabVersionLessThan(ctx, client, "14.10")()
+	if err != nil {
+		return diag.Errorf("unable to get information if `default_branch` handling is supported in the GitLab instance: %v", err)
+	}
 
-		log.Printf("[DEBUG] create branch %q for project %q", newDefaultBranch, d.Id())
-		_, _, err := client.Branches.CreateBranch(project.ID, &gitlab.CreateBranchOptions{
-			Branch: gitlab.String(newDefaultBranch),
-			Ref:    gitlab.String(oldDefaultBranch),
-		}, gitlab.WithContext(ctx))
-		if err != nil {
-			return diag.Errorf("Failed to create branch %q for project %q: %s", newDefaultBranch, d.Id(), err)
-		}
+	if noDefaultBranchAPISupport {
+		// default_branch cannot always be set during creation.
+		// If the branch does not exist, the update will fail, so we also create it here.
+		// This logic may be removed when the above issue is resolved.
+		if v, ok := d.GetOk("default_branch"); ok && project.DefaultBranch != "" && project.DefaultBranch != v.(string) {
+			oldDefaultBranch := project.DefaultBranch
+			newDefaultBranch := v.(string)
 
-		log.Printf("[DEBUG] set new default branch to %q for project %q", newDefaultBranch, d.Id())
-		_, _, err = client.Projects.EditProject(project.ID, &gitlab.EditProjectOptions{
-			DefaultBranch: gitlab.String(newDefaultBranch),
-		}, gitlab.WithContext(ctx))
-		if err != nil {
-			return diag.Errorf("Failed to set default branch to %q for project %q: %s", newDefaultBranch, d.Id(), err)
-		}
-
-		log.Printf("[DEBUG] protect new default branch %q for project %q", newDefaultBranch, d.Id())
-		_, _, err = client.ProtectedBranches.ProtectRepositoryBranches(project.ID, &gitlab.ProtectRepositoryBranchesOptions{
-			Name: gitlab.String(newDefaultBranch),
-		}, gitlab.WithContext(ctx))
-		if err != nil {
-			return diag.Errorf("Failed to protect default branch %q for project %q: %s", newDefaultBranch, d.Id(), err)
-		}
-
-		log.Printf("[DEBUG] check for protection on old default branch %q for project %q", oldDefaultBranch, d.Id())
-		branch, _, err := client.ProtectedBranches.GetProtectedBranch(project.ID, oldDefaultBranch, gitlab.WithContext(ctx))
-		if err != nil && !is404(err) {
-			return diag.Errorf("Failed to check for protected default branch %q for project %q: %v", oldDefaultBranch, d.Id(), err)
-		}
-		if branch == nil {
-			log.Printf("[DEBUG] Default protected branch %q for project %q does not exist", oldDefaultBranch, d.Id())
-		} else {
-			log.Printf("[DEBUG] unprotect old default branch %q for project %q", oldDefaultBranch, d.Id())
-			_, err = client.ProtectedBranches.UnprotectRepositoryBranches(project.ID, oldDefaultBranch, gitlab.WithContext(ctx))
+			log.Printf("[DEBUG] create branch %q for project %q", newDefaultBranch, d.Id())
+			_, _, err := client.Branches.CreateBranch(project.ID, &gitlab.CreateBranchOptions{
+				Branch: gitlab.String(newDefaultBranch),
+				Ref:    gitlab.String(oldDefaultBranch),
+			}, gitlab.WithContext(ctx))
 			if err != nil {
-				return diag.Errorf("Failed to unprotect undesired default branch %q for project %q: %v", oldDefaultBranch, d.Id(), err)
+				return diag.Errorf("Failed to create branch %q for project %q: %s", newDefaultBranch, d.Id(), err)
+			}
+
+			log.Printf("[DEBUG] set new default branch to %q for project %q", newDefaultBranch, d.Id())
+			_, _, err = client.Projects.EditProject(project.ID, &gitlab.EditProjectOptions{
+				DefaultBranch: gitlab.String(newDefaultBranch),
+			}, gitlab.WithContext(ctx))
+			if err != nil {
+				return diag.Errorf("Failed to set default branch to %q for project %q: %s", newDefaultBranch, d.Id(), err)
+			}
+
+			log.Printf("[DEBUG] protect new default branch %q for project %q", newDefaultBranch, d.Id())
+			_, _, err = client.ProtectedBranches.ProtectRepositoryBranches(project.ID, &gitlab.ProtectRepositoryBranchesOptions{
+				Name: gitlab.String(newDefaultBranch),
+			}, gitlab.WithContext(ctx))
+			if err != nil {
+				return diag.Errorf("Failed to protect default branch %q for project %q: %s", newDefaultBranch, d.Id(), err)
+			}
+
+			log.Printf("[DEBUG] check for protection on old default branch %q for project %q", oldDefaultBranch, d.Id())
+			branch, _, err := client.ProtectedBranches.GetProtectedBranch(project.ID, oldDefaultBranch, gitlab.WithContext(ctx))
+			if err != nil && !is404(err) {
+				return diag.Errorf("Failed to check for protected default branch %q for project %q: %v", oldDefaultBranch, d.Id(), err)
+			}
+			if branch == nil {
+				log.Printf("[DEBUG] Default protected branch %q for project %q does not exist", oldDefaultBranch, d.Id())
+			} else {
+				log.Printf("[DEBUG] unprotect old default branch %q for project %q", oldDefaultBranch, d.Id())
+				_, err = client.ProtectedBranches.UnprotectRepositoryBranches(project.ID, oldDefaultBranch, gitlab.WithContext(ctx))
+				if err != nil {
+					return diag.Errorf("Failed to unprotect undesired default branch %q for project %q: %v", oldDefaultBranch, d.Id(), err)
+				}
+			}
+
+			log.Printf("[DEBUG] delete old default branch %q for project %q", oldDefaultBranch, d.Id())
+			_, err = client.Branches.DeleteBranch(project.ID, oldDefaultBranch, gitlab.WithContext(ctx))
+			if err != nil {
+				return diag.Errorf("Failed to clean up undesired default branch %q for project %q: %s", oldDefaultBranch, d.Id(), err)
 			}
 		}
+	}
 
-		log.Printf("[DEBUG] delete old default branch %q for project %q", oldDefaultBranch, d.Id())
-		_, err = client.Branches.DeleteBranch(project.ID, oldDefaultBranch, gitlab.WithContext(ctx))
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("skip_wait_for_default_branch_protection"); ok {
+		d.Set("skip_wait_for_default_branch_protection", v.(bool))
+	}
+	if !d.Get("skip_wait_for_default_branch_protection").(bool) {
+		// If the project is assigned to a group namespace and the group has *default branch protection*
+		// disabled (`default_branch_protection = 0`) then we don't have to wait for one.
+		waitForDefaultBranchProtection, err := expectDefaultBranchProtection(ctx, client, project)
 		if err != nil {
-			return diag.Errorf("Failed to clean up undesired default branch %q for project %q: %s", oldDefaultBranch, d.Id(), err)
+			return diag.Errorf("Failed to discover if branch protection is enabled by default or not for project %d: %+v", project.ID, err)
 		}
-	}
 
-	// If the project is assigned to a group namespace and the group has *default branch protection*
-	// disabled (`default_branch_protection = 0`) then we don't have to wait for one.
-	waitForDefaultBranchProtection, err := expectDefaultBranchProtection(ctx, client, project)
-	if err != nil {
-		return diag.Errorf("Failed to fetch group the project %d is owned by: %+v", project.ID, err)
-	}
+		if waitForDefaultBranchProtection {
+			// Branch protection for a newly created branch is an async action, so use WaitForState to ensure it's protected
+			// before we continue. Note this check should only be required when there is a custom default branch set
+			// See issue 800: https://github.com/gitlabhq/terraform-provider-gitlab/issues/800
+			stateConf := &resource.StateChangeConf{
+				Pending: []string{"false"},
+				Target:  []string{"true"},
+				Timeout: 2 * time.Minute, //The async action usually completes very quickly, within seconds. Don't wait too long.
+				Refresh: func() (interface{}, string, error) {
+					branch, _, err := client.Branches.GetBranch(project.ID, project.DefaultBranch, gitlab.WithContext(ctx))
+					if err != nil {
+						if is404(err) {
+							// When we hit a 404 here, it means the default branch wasn't created at all as part of the project
+							// this will happen when "default_branch" isn't set, or "initialize_with_readme" is set to false.
+							// We don't need to wait anymore, so return "true" to exist the wait loop.
+							return branch, "true", nil
+						}
 
-	if waitForDefaultBranchProtection {
-		// Branch protection for a newly created branch is an async action, so use WaitForState to ensure it's protected
-		// before we continue. Note this check should only be required when there is a custom default branch set
-		// See issue 800: https://github.com/gitlabhq/terraform-provider-gitlab/issues/800
-		stateConf := &resource.StateChangeConf{
-			Pending: []string{"false"},
-			Target:  []string{"true"},
-			Timeout: 2 * time.Minute, //The async action usually completes very quickly, within seconds. Don't wait too long.
-			Refresh: func() (interface{}, string, error) {
-				branch, _, err := client.Branches.GetBranch(project.ID, project.DefaultBranch, gitlab.WithContext(ctx))
-				if err != nil {
-					if is404(err) {
-						// When we hit a 404 here, it means the default branch wasn't created at all as part of the project
-						// this will happen when "default_branch" isn't set, or "initialize_with_readme" is set to false.
-						// We don't need to wait anymore, so return "true" to exist the wait loop.
-						return branch, "true", nil
+						//This is legit error, return the error.
+						return nil, "", err
 					}
 
-					//This is legit error, return the error.
-					return nil, "", err
-				}
+					return branch, strconv.FormatBool(branch.Protected), nil
+				},
+			}
 
-				return branch, strconv.FormatBool(branch.Protected), nil
-			},
-		}
-
-		if _, err := stateConf.WaitForStateContext(ctx); err != nil {
-			return diag.Errorf("error while waiting for branch %s to reach 'protected' status, %s", project.DefaultBranch, err)
+			if _, err := stateConf.WaitForStateContext(ctx); err != nil {
+				return diag.Errorf("error while waiting for branch %s to reach 'protected' status, %s", project.DefaultBranch, err)
+			}
 		}
 	}
 
 	var editProjectOptions gitlab.EditProjectOptions
 
-	if v, ok := d.GetOk("mirror_overwrites_diverged_branches"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("mirror_overwrites_diverged_branches"); ok {
 		editProjectOptions.MirrorOverwritesDivergedBranches = gitlab.Bool(v.(bool))
 		editProjectOptions.ImportURL = gitlab.String(d.Get("import_url").(string))
 	}
 
-	if v, ok := d.GetOk("only_mirror_protected_branches"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("only_mirror_protected_branches"); ok {
 		editProjectOptions.OnlyMirrorProtectedBranches = gitlab.Bool(v.(bool))
 		editProjectOptions.ImportURL = gitlab.String(d.Get("import_url").(string))
 	}
@@ -1118,12 +1189,20 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		editProjectOptions.MergeRequestsTemplate = gitlab.String(v.(string))
 	}
 
-	if v, ok := d.GetOk("merge_pipelines_enabled"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("merge_pipelines_enabled"); ok {
 		editProjectOptions.MergePipelinesEnabled = gitlab.Bool(v.(bool))
 	}
 
-	if v, ok := d.GetOk("merge_trains_enabled"); ok {
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("merge_trains_enabled"); ok {
 		editProjectOptions.MergeTrainsEnabled = gitlab.Bool(v.(bool))
+	}
+
+	if v, ok := d.GetOk("ci_default_git_depth"); ok {
+		editProjectOptions.CIDefaultGitDepth = gitlab.Int(v.(int))
 	}
 
 	if (editProjectOptions != gitlab.EditProjectOptions{}) {
@@ -1154,7 +1233,7 @@ func resourceGitlabProjectRead(ctx context.Context, d *schema.ResourceData, meta
 		return nil
 	}
 
-	if err := resourceGitlabProjectSetToState(client, d, project); err != nil {
+	if err := resourceGitlabProjectSetToState(ctx, client, d, project); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -1176,7 +1255,13 @@ func resourceGitlabProjectRead(ctx context.Context, d *schema.ResourceData, meta
 func resourceGitlabProjectUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*gitlab.Client)
 
-	options := &gitlab.EditProjectOptions{}
+	// Always send the name field, to satisfy the requirement of having one
+	// of the project attributes listed below in the update call
+	// https://gitlab.com/gitlab-org/gitlab-foss/-/blob/master/lib/api/helpers/projects_helpers.rb#L120-188
+	options := &gitlab.EditProjectOptions{
+		Name: gitlab.String(d.Get("name").(string)),
+	}
+
 	transferOptions := &gitlab.TransferProjectOptions{}
 
 	if d.HasChange("name") {
@@ -1263,7 +1348,7 @@ func resourceGitlabProjectUpdate(ctx context.Context, d *schema.ResourceData, me
 		options.LFSEnabled = gitlab.Bool(d.Get("lfs_enabled").(bool))
 	}
 
-	if supportsSquashOption, err := isGitLabVersionAtLeast(client, "14.1")(); err != nil {
+	if supportsSquashOption, err := isGitLabVersionAtLeast(ctx, client, "14.1")(); err != nil {
 		return diag.FromErr(err)
 	} else if supportsSquashOption && d.HasChange("squash_option") {
 		options.SquashOption = stringToSquashOptionValue(d.Get("squash_option").(string))
@@ -1306,7 +1391,7 @@ func resourceGitlabProjectUpdate(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	if d.HasChange("build_coverage_regex") {
-		options.BuildCoverageRegex = gitlab.String(d.Get("build_coverage_regex").(string))
+		options.IssuesTemplate = gitlab.String(d.Get("build_coverage_regex").(string))
 	}
 
 	if d.HasChange("issues_template") {
@@ -1439,6 +1524,10 @@ func resourceGitlabProjectUpdate(ctx context.Context, d *schema.ResourceData, me
 
 	if d.HasChange("merge_commit_template") {
 		options.MergeCommitTemplate = gitlab.String(d.Get("merge_commit_template").(string))
+	}
+
+	if d.HasChange("ci_default_git_depth") {
+		options.CIDefaultGitDepth = gitlab.Int(d.Get("ci_default_git_depth").(int))
 	}
 
 	if *options != (gitlab.EditProjectOptions{}) {
@@ -1746,6 +1835,7 @@ func namespaceOrPathChanged(ctx context.Context, d *schema.ResourceDiff, meta in
 }
 
 func expectDefaultBranchProtection(ctx context.Context, client *gitlab.Client, project *gitlab.Project) (bool, error) {
+	// If the project is part of a group it may have default branch protection disabled for its projects
 	if project.Namespace.Kind == "group" {
 		group, _, err := client.Groups.GetGroup(project.Namespace.ID, nil, gitlab.WithContext(ctx))
 		if err != nil {
@@ -1755,7 +1845,22 @@ func expectDefaultBranchProtection(ctx context.Context, client *gitlab.Client, p
 		return group.DefaultBranchProtection != 0, nil
 	}
 
-	// projects which are not assigned to a group can't have a "no branch protection" default,
-	// thus, we always expect a default branch protection.
+	isAdmin, err := isCurrentUserAdmin(ctx, client)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if user is admin to verify is default branch protection is enabled on instance-level: %w", err)
+	}
+
+	if isAdmin {
+		// If the project is not part of a group it may have default branch protection disabled because of the instance-wide application settings
+		settings, _, err := client.Settings.GetSettings(nil, gitlab.WithContext(ctx))
+		if err != nil {
+			return false, err
+		}
+
+		return settings.DefaultBranchProtection != 0, nil
+	}
+
+	// NOTE: for the lack of a better solution (at least for now), we assume that the default branch protection is NOT disabled on instance-level.
+	//       To override this behavior it's best to set `skip_wait_for_default_branch_protection = true` in the resource config.
 	return true, nil
 }

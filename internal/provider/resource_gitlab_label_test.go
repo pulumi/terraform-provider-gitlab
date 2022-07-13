@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -14,8 +17,7 @@ func TestAccGitlabLabel_basic(t *testing.T) {
 	var label gitlab.Label
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabLabelDestroy,
 		Steps: []resource.TestStep{
@@ -139,17 +141,16 @@ func testAccCheckGitlabLabelAttributes(label *gitlab.Label, want *testAccGitlabL
 
 func testAccCheckGitlabLabelDestroy(s *terraform.State) error {
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "gitlab_project" {
+		if rs.Type != "gitlab_label" {
 			continue
 		}
 
-		gotRepo, _, err := testGitlabClient.Projects.GetProject(rs.Primary.ID, nil)
+		project := rs.Primary.Attributes["project"]
+		labelName := rs.Primary.ID
+
+		_, _, err := testGitlabClient.Labels.GetLabel(project, labelName)
 		if err == nil {
-			if gotRepo != nil && fmt.Sprintf("%d", gotRepo.ID) == rs.Primary.ID {
-				if gotRepo.MarkedForDeletionAt == nil {
-					return fmt.Errorf("Repository still exists")
-				}
-			}
+			return fmt.Errorf("Label %s in project %s still exists", labelName, project)
 		}
 		if !is404(err) {
 			return err

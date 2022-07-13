@@ -1,8 +1,13 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"testing"
 
@@ -16,14 +21,13 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 	var topic gitlab.Topic
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabTopicDestroy,
 		Steps: []resource.TestStep{
 			// Create a topic with default options
 			{
-				Config: testAccGitlabTopicRequiredConfig(rInt),
+				Config: testAccGitlabTopicRequiredConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -42,7 +46,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Update the topics values
 			{
-				Config: testAccGitlabTopicFullConfig(rInt),
+				Config: testAccGitlabTopicFullConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -64,7 +68,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Update back to the default topics avatar
 			{
-				Config: testAccGitlabTopicFullConfig(rInt),
+				Config: testAccGitlabTopicFullConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -86,7 +90,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Update the topics avatar
 			{
-				Config: testAccGitlabTopicFullUpdatedAvatarConfig(rInt),
+				Config: testAccGitlabTopicFullUpdatedAvatarConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -108,7 +112,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Update back to the default topics avatar
 			{
-				Config: testAccGitlabTopicFullConfig(rInt),
+				Config: testAccGitlabTopicFullConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -130,7 +134,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Update the avatar image, but keep the filename to test the `CustomizeDiff` function
 			{
-				Config: testAccGitlabTopicFullConfig(rInt),
+				Config: testAccGitlabTopicFullConfig(t, rInt),
 				PreConfig: func() {
 					// overwrite the avatar image file
 					if err := copyFile("testdata/gitlab_topic/avatar.png", "testdata/gitlab_topic/avatar.png.bak"); err != nil {
@@ -166,7 +170,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Update the topics values back to their initial state
 			{
-				Config: testAccGitlabTopicRequiredConfig(rInt),
+				Config: testAccGitlabTopicRequiredConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -187,7 +191,7 @@ func TestAccGitlabTopic_basic(t *testing.T) {
 			},
 			// Updating the topic to have a description before it is deleted
 			{
-				Config: testAccGitlabTopicFullConfig(rInt),
+				Config: testAccGitlabTopicFullConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					testAccCheckGitlabTopicAttributes(&topic, &testAccGitlabTopicExpectedAttributes{
@@ -213,14 +217,13 @@ func TestAccGitlabTopic_withoutAvatarHash(t *testing.T) {
 	var topic gitlab.Topic
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabTopicDestroy,
 		Steps: []resource.TestStep{
 			// Create a topic with avatar, but without giving a hash
 			{
-				Config: testAccGitlabTopicAvatarWithoutHashConfig(rInt),
+				Config: testAccGitlabTopicAvatarWithoutHashConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 					resource.TestCheckResourceAttrSet("gitlab_topic.foo", "avatar_url"),
@@ -229,7 +232,7 @@ func TestAccGitlabTopic_withoutAvatarHash(t *testing.T) {
 			},
 			// Update the avatar image, but keep the filename to test the `CustomizeDiff` function
 			{
-				Config:             testAccGitlabTopicAvatarWithoutHashConfig(rInt),
+				Config:             testAccGitlabTopicAvatarWithoutHashConfig(t, rInt),
 				ExpectNonEmptyPlan: true,
 			},
 		},
@@ -240,17 +243,56 @@ func TestAccGitlabTopic_softDestroy(t *testing.T) {
 	var topic gitlab.Topic
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabTopicSoftDestroy,
 		Steps: []resource.TestStep{
 			// Create a topic with soft_destroy enabled
 			{
-				Config: testAccGitlabTopicSoftDestroyConfig(rInt),
+				Config: testAccGitlabTopicSoftDestroyConfig(t, rInt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGitlabTopicExists("gitlab_topic.foo", &topic),
 				),
+			},
+		},
+	})
+}
+
+func TestAccGitlabTopic_titleSupport(t *testing.T) {
+	rInt := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabTopicDestroy,
+		Steps: []resource.TestStep{
+			{
+				SkipFunc: isGitLabVersionAtLeast(context.TODO(), testGitlabClient, "15.0"),
+				Config: fmt.Sprintf(`
+					resource "gitlab_topic" "this" {
+						name = "foo-%d"
+						title = "Foo-%d"
+					}
+				`, rInt, rInt),
+				ExpectError: regexp.MustCompile(`title is not supported by your version of GitLab. At least GitLab 15.0 is required`),
+			},
+			{
+				SkipFunc: isGitLabVersionLessThan(context.TODO(), testGitlabClient, "15.0"),
+				Config: fmt.Sprintf(`
+					resource "gitlab_topic" "this" {
+						name = "foo-%d"
+					}
+				`, rInt),
+				ExpectError: regexp.MustCompile(`title is a required attribute for GitLab 15.0 and newer. Please specify it in the configuration.`),
+			},
+			{
+				SkipFunc: isGitLabVersionLessThan(context.TODO(), testGitlabClient, "15.0"),
+				Config: fmt.Sprintf(`
+					resource "gitlab_topic" "this" {
+						name = "foo-%d"
+						title = "Foo-%d"
+					}
+				`, rInt, rInt),
+				Check: resource.TestCheckResourceAttr("gitlab_topic.this", "title", fmt.Sprintf("Foo-%d", rInt)),
 			},
 		},
 	})
@@ -369,47 +411,73 @@ func testAccCheckGitlabTopicSoftDestroy(s *terraform.State) (err error) {
 	return nil
 }
 
-func testAccGitlabTopicRequiredConfig(rInt int) string {
+func testAccGitlabTopicRequiredConfig(t *testing.T, rInt int) string {
+	var titleConfig string
+	if testAccIsRunningAtLeast(t, "15.0") {
+		titleConfig = fmt.Sprintf(`title = "Foo Req %d"`, rInt)
+	}
+
 	return fmt.Sprintf(`
 resource "gitlab_topic" "foo" {
   name = "foo-req-%d"
-}`, rInt)
+  %s
+}`, rInt, titleConfig)
 }
 
-func testAccGitlabTopicFullConfig(rInt int) string {
+func testAccGitlabTopicFullConfig(t *testing.T, rInt int) string {
+	var titleConfig string
+	if testAccIsRunningAtLeast(t, "15.0") {
+		titleConfig = fmt.Sprintf(`title = "Foo Req %d"`, rInt)
+	}
 	return fmt.Sprintf(`
 resource "gitlab_topic" "foo" {
   name        = "foo-full-%d"
+  %s
   description = "Terraform acceptance tests"
   avatar      = "${path.module}/testdata/gitlab_topic/avatar.png"
   avatar_hash = filesha256("${path.module}/testdata/gitlab_topic/avatar.png")
-}`, rInt)
+}`, rInt, titleConfig)
 }
 
-func testAccGitlabTopicFullUpdatedAvatarConfig(rInt int) string {
+func testAccGitlabTopicFullUpdatedAvatarConfig(t *testing.T, rInt int) string {
+	var titleConfig string
+	if testAccIsRunningAtLeast(t, "15.0") {
+		titleConfig = fmt.Sprintf(`title = "Foo Req %d"`, rInt)
+	}
 	return fmt.Sprintf(`
 resource "gitlab_topic" "foo" {
   name        = "foo-full-%d"
+  %s
   description = "Terraform acceptance tests"
   avatar 	  = "${path.module}/testdata/gitlab_topic/avatar-update.png"
   avatar_hash = filesha256("${path.module}/testdata/gitlab_topic/avatar-update.png")
-}`, rInt)
+}`, rInt, titleConfig)
 }
 
-func testAccGitlabTopicAvatarWithoutHashConfig(rInt int) string {
+func testAccGitlabTopicAvatarWithoutHashConfig(t *testing.T, rInt int) string {
+	var titleConfig string
+	if testAccIsRunningAtLeast(t, "15.0") {
+		titleConfig = fmt.Sprintf(`title = "Foo Req %d"`, rInt)
+	}
 	return fmt.Sprintf(`
 resource "gitlab_topic" "foo" {
   name   = "foo-%d"
+  %s
   avatar = "${path.module}/testdata/gitlab_topic/avatar.png"
-}`, rInt)
+}`, rInt, titleConfig)
 }
 
-func testAccGitlabTopicSoftDestroyConfig(rInt int) string {
+func testAccGitlabTopicSoftDestroyConfig(t *testing.T, rInt int) string {
+	var titleConfig string
+	if testAccIsRunningAtLeast(t, "15.0") {
+		titleConfig = fmt.Sprintf(`title = "Foo Req %d"`, rInt)
+	}
 	return fmt.Sprintf(`
 resource "gitlab_topic" "foo" {
   name        = "foo-soft-destroy-%d"
+  %s
   description = "Terraform acceptance tests"
 
   soft_destroy = true
-}`, rInt)
+}`, rInt, titleConfig)
 }

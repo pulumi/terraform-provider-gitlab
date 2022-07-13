@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,8 +18,7 @@ func TestAccGitlabPipelineSchedule_basic(t *testing.T) {
 	var schedule gitlab.PipelineSchedule
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabPipelineScheduleDestroy,
 		Steps: []resource.TestStep{
@@ -34,6 +36,13 @@ func TestAccGitlabPipelineSchedule_basic(t *testing.T) {
 					}),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_pipeline_schedule.schedule",
+				ImportStateIdFunc: getPipelineScheduleImportID("gitlab_pipeline_schedule.schedule"),
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Update the pipeline schedule to change the parameters
 			{
 				Config: testAccGitlabPipelineScheduleUpdateConfig(rInt),
@@ -47,6 +56,13 @@ func TestAccGitlabPipelineSchedule_basic(t *testing.T) {
 						Active:       false,
 					}),
 				),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_pipeline_schedule.schedule",
+				ImportStateIdFunc: getPipelineScheduleImportID("gitlab_pipeline_schedule.schedule"),
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Update the pipeline schedule to get back to initial settings
 			{
@@ -62,26 +78,10 @@ func TestAccGitlabPipelineSchedule_basic(t *testing.T) {
 					}),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabPipelineSchedule_import(t *testing.T) {
-	rInt := acctest.RandInt()
-	resourceName := "gitlab_pipeline_schedule.schedule"
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabPipelineScheduleDestroy,
-		Steps: []resource.TestStep{
+			// Verify Import
 			{
-				Config: testAccGitlabPipelineScheduleConfig(rInt),
-			},
-			{
-				ResourceName:      resourceName,
-				ImportStateIdFunc: getPipelineScheduleImportID(resourceName),
+				ResourceName:      "gitlab_pipeline_schedule.schedule",
+				ImportStateIdFunc: getPipelineScheduleImportID("gitlab_pipeline_schedule.schedule"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},

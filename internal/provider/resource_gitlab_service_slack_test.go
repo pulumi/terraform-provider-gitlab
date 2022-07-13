@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,8 +18,7 @@ func TestAccGitlabServiceSlack_basic(t *testing.T) {
 	rInt := acctest.RandInt()
 	slackResourceName := "gitlab_service_slack.slack"
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabServiceSlackDestroy,
 		Steps: []resource.TestStep{
@@ -27,6 +29,16 @@ func TestAccGitlabServiceSlack_basic(t *testing.T) {
 					testAccCheckGitlabServiceExists(slackResourceName, &slackService),
 					resource.TestCheckResourceAttr(slackResourceName, "webhook", "https://test.com"),
 				),
+			},
+			{
+				ResourceName:      slackResourceName,
+				ImportStateIdFunc: getSlackProjectID(slackResourceName),
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"notify_only_broken_pipelines",
+					"notify_only_default_branch",
+				},
 			},
 			// Update slack service with more settings
 			{
@@ -44,6 +56,16 @@ func TestAccGitlabServiceSlack_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(slackResourceName, "notify_only_broken_pipelines", "true"),
 				),
 			},
+			{
+				ResourceName:      slackResourceName,
+				ImportStateIdFunc: getSlackProjectID(slackResourceName),
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"notify_only_broken_pipelines",
+					"notify_only_default_branch",
+				},
+			},
 			// Update the slack service
 			{
 				Config: testAccGitlabServiceSlackUpdateConfig(rInt),
@@ -54,6 +76,16 @@ func TestAccGitlabServiceSlack_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(slackResourceName, "push_channel", "test push_channel"),
 					resource.TestCheckResourceAttr(slackResourceName, "notify_only_broken_pipelines", "false"),
 				),
+			},
+			{
+				ResourceName:      slackResourceName,
+				ImportStateIdFunc: getSlackProjectID(slackResourceName),
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"notify_only_broken_pipelines",
+					"notify_only_default_branch",
+				},
 			},
 			// Update the slack service to get back to previous settings
 			{
@@ -66,6 +98,16 @@ func TestAccGitlabServiceSlack_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(slackResourceName, "notify_only_broken_pipelines", "true"),
 				),
 			},
+			{
+				ResourceName:      slackResourceName,
+				ImportStateIdFunc: getSlackProjectID(slackResourceName),
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"notify_only_broken_pipelines",
+					"notify_only_default_branch",
+				},
+			},
 			// Update the slack service to get back to minimal settings
 			{
 				Config: testAccGitlabServiceSlackMinimalConfig(rInt),
@@ -75,23 +117,7 @@ func TestAccGitlabServiceSlack_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(slackResourceName, "push_channel", ""),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabServiceSlack_import(t *testing.T) {
-	slackResourceName := "gitlab_service_slack.slack"
-	rInt := acctest.RandInt()
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabServiceSlackDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccGitlabServiceSlackConfig(rInt),
-			},
+			// Verify Import
 			{
 				ResourceName:      slackResourceName,
 				ImportStateIdFunc: getSlackProjectID(slackResourceName),
@@ -129,17 +155,15 @@ func testAccCheckGitlabServiceExists(n string, service *gitlab.SlackService) res
 
 func testAccCheckGitlabServiceSlackDestroy(s *terraform.State) error {
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "gitlab_project" {
+		if rs.Type != "gitlab_service_slack" {
 			continue
 		}
 
-		gotRepo, _, err := testGitlabClient.Projects.GetProject(rs.Primary.ID, nil)
+		project := rs.Primary.ID
+
+		_, _, err := testGitlabClient.Services.GetSlackService(project)
 		if err == nil {
-			if gotRepo != nil && fmt.Sprintf("%d", gotRepo.ID) == rs.Primary.ID {
-				if gotRepo.MarkedForDeletionAt == nil {
-					return fmt.Errorf("Repository still exists")
-				}
-			}
+			return fmt.Errorf("Slack Service Integration in project %s still exists", project)
 		}
 		if !is404(err) {
 			return err

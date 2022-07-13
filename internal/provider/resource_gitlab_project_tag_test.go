@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -12,15 +15,13 @@ import (
 )
 
 func TestAccGitlabProjectTag_basic(t *testing.T) {
-	testAccCheck(t)
 	var tag gitlab.Tag
 	var tag2 gitlab.Tag
 	rInt, rInt2, rInt3 := acctest.RandInt(), acctest.RandInt(), acctest.RandInt()
 	project := testAccCreateProject(t)
 	branches := testAccCreateBranches(t, project, 1)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectTagDestroy,
 		Steps: []resource.TestStep{

@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,8 +18,7 @@ func TestAccGitlabPipelineTrigger_basic(t *testing.T) {
 	var trigger gitlab.PipelineTrigger
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabPipelineTriggerDestroy,
 		Steps: []resource.TestStep{
@@ -30,6 +32,13 @@ func TestAccGitlabPipelineTrigger_basic(t *testing.T) {
 					}),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_pipeline_trigger.trigger",
+				ImportStateIdFunc: getPipelineTriggerImportID("gitlab_pipeline_trigger.trigger"),
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Update the pipeline trigger to change the parameters
 			{
 				Config: testAccGitlabPipelineTriggerUpdateConfig(rInt),
@@ -39,6 +48,13 @@ func TestAccGitlabPipelineTrigger_basic(t *testing.T) {
 						Description: "Trigger",
 					}),
 				),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_pipeline_trigger.trigger",
+				ImportStateIdFunc: getPipelineTriggerImportID("gitlab_pipeline_trigger.trigger"),
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Update the pipeline trigger to get back to initial settings
 			{
@@ -50,26 +66,10 @@ func TestAccGitlabPipelineTrigger_basic(t *testing.T) {
 					}),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabPipelineTrigger_import(t *testing.T) {
-	rInt := acctest.RandInt()
-	resourceName := "gitlab_pipeline_trigger.trigger"
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabPipelineTriggerDestroy,
-		Steps: []resource.TestStep{
+			// Verify Import
 			{
-				Config: testAccGitlabPipelineTriggerConfig(rInt),
-			},
-			{
-				ResourceName:      resourceName,
-				ImportStateIdFunc: getPipelineTriggerImportID(resourceName),
+				ResourceName:      "gitlab_pipeline_trigger.trigger",
+				ImportStateIdFunc: getPipelineTriggerImportID("gitlab_pipeline_trigger.trigger"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -140,17 +140,19 @@ func testAccCheckGitlabPipelineTriggerAttributes(trigger *gitlab.PipelineTrigger
 
 func testAccCheckGitlabPipelineTriggerDestroy(s *terraform.State) error {
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "gitlab_project" {
+		if rs.Type != "gitlab_pipeline_trigger" {
 			continue
 		}
 
-		gotRepo, _, err := testGitlabClient.Projects.GetProject(rs.Primary.ID, nil)
+		project := rs.Primary.Attributes["project"]
+		pipelineTriggerID, err := strconv.Atoi(rs.Primary.ID)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = testGitlabClient.PipelineTriggers.GetPipelineTrigger(project, pipelineTriggerID)
 		if err == nil {
-			if gotRepo != nil && fmt.Sprintf("%d", gotRepo.ID) == rs.Primary.ID {
-				if gotRepo.MarkedForDeletionAt == nil {
-					return fmt.Errorf("Repository still exists")
-				}
-			}
+			return fmt.Errorf("Pipeline Trigger %d in project %s still exists", pipelineTriggerID, project)
 		}
 		if !is404(err) {
 			return err

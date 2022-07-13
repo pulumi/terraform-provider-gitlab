@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,8 +18,7 @@ func TestAccGitlabGroupCustomAttribute_basic(t *testing.T) {
 	var customAttribute gitlab.CustomAttribute
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupDestroy,
 		Steps: []resource.TestStep{

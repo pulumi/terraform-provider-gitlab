@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -14,8 +17,7 @@ func TestAccGitlabProjectFreezePeriod_basic(t *testing.T) {
 	var schedule gitlab.FreezePeriod
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -31,6 +33,12 @@ func TestAccGitlabProjectFreezePeriod_basic(t *testing.T) {
 					}),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_project_freeze_period.schedule",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Update the freeze period to change the parameters
 			{
 				Config: testAccGitlabProjectFreezePeriodUpdateConfig(rInt),
@@ -42,6 +50,12 @@ func TestAccGitlabProjectFreezePeriod_basic(t *testing.T) {
 						CronTimezone: "EST",
 					}),
 				),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_project_freeze_period.schedule",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Update the freeze period to get back to initial settings
 			{
@@ -55,22 +69,7 @@ func TestAccGitlabProjectFreezePeriod_basic(t *testing.T) {
 					}),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabProjectFreezePeriod_import(t *testing.T) {
-	rInt := acctest.RandInt()
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabProjectDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccGitlabProjectFreezePeriodConfig(rInt),
-			},
+			// Verify Import
 			{
 				ResourceName:      "gitlab_project_freeze_period.schedule",
 				ImportState:       true,

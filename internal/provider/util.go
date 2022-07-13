@@ -15,6 +15,20 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
+// extractIIDFromGlobalID extracts the internal model ID from a global GraphQL ID.
+//
+// e.g. 'gid://gitlab/User/1' -> 1 or 'gid://gitlab/Project/42' -> 42
+//
+// see https://docs.gitlab.com/ee/development/api_graphql_styleguide.html#global-ids
+func extractIIDFromGlobalID(globalID string) (int, error) {
+	parts := strings.Split(globalID, "/")
+	iid, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return 0, fmt.Errorf("unable to extract iid from global id %q. Was looking for an integer after the last slash (/).", globalID)
+	}
+	return iid, nil
+}
+
 func renderValueListForDocs(values []string) string {
 	inlineCodeValues := make([]string, 0, len(values))
 	for _, v := range values {
@@ -201,6 +215,17 @@ var tagProtectionAccessLevelNames = map[gitlab.AccessLevelValue]string{
 	gitlab.MaintainerPermissions: "maintainer",
 }
 
+func stringListToStringSlice(stringList []interface{}) *[]string {
+	ret := []string{}
+	if stringList == nil {
+		return &ret
+	}
+	for _, v := range stringList {
+		ret = append(ret, fmt.Sprint(v))
+	}
+	return &ret
+}
+
 func stringSetToStringSlice(stringSet *schema.Set) *[]string {
 	ret := []string{}
 	if stringSet == nil {
@@ -225,23 +250,23 @@ func intSetToIntSlice(intSet *schema.Set) *[]int {
 
 // isGitLabVersionLessThan is a SkipFunc that returns true if the provided version is lower then
 // the current version of GitLab. It only checks the major and minor version numbers, not the patch.
-func isGitLabVersionLessThan(client *gitlab.Client, version string) func() (bool, error) {
+func isGitLabVersionLessThan(ctx context.Context, client *gitlab.Client, version string) func() (bool, error) {
 	return func() (bool, error) {
-		isAtLeast, err := isGitLabVersionAtLeast(client, version)()
+		isAtLeast, err := isGitLabVersionAtLeast(ctx, client, version)()
 		return !isAtLeast, err
 	}
 }
 
 // isGitLabVersionAtLeast is a SkipFunc that checks that the version of GitLab is at least the
 // provided wantVersion. It only checks the major and minor version numbers, not the patch.
-func isGitLabVersionAtLeast(client *gitlab.Client, wantVersion string) func() (bool, error) {
+func isGitLabVersionAtLeast(ctx context.Context, client *gitlab.Client, wantVersion string) func() (bool, error) {
 	return func() (bool, error) {
 		wantMajor, wantMinor, err := parseVersionMajorMinor(wantVersion)
 		if err != nil {
 			return false, fmt.Errorf("failed to parse wanted version %q: %w", wantVersion, err)
 		}
 
-		actualVersion, _, err := client.Version.GetVersion()
+		actualVersion, _, err := client.Version.GetVersion(gitlab.WithContext(ctx))
 		if err != nil {
 			return false, err
 		}
@@ -285,6 +310,15 @@ func is404(err error) bool {
 		return true
 	}
 	return false
+}
+
+func isCurrentUserAdmin(ctx context.Context, client *gitlab.Client) (bool, error) {
+	currentUser, _, err := client.Users.CurrentUser(gitlab.WithContext(ctx))
+	if err != nil {
+		return false, err
+	}
+
+	return currentUser.IsAdmin, nil
 }
 
 // ISO 8601 date format
@@ -346,7 +380,7 @@ func attributeNamesFromSchema(schema map[string]*schema.Schema) []string {
 // - all attributes have ForceNew, Required = false
 // - Validation funcs and attributes (e.g. MaxItems) are not copied
 // Adapted from https://github.com/hashicorp/terraform-provider-google/blob/1a72f93a8dcf6f1e59d5f25aefcb6d794a116bf5/google/datasource_helpers.go#L13
-func datasourceSchemaFromResourceSchema(rs map[string]*schema.Schema, arguments ...string) map[string]*schema.Schema {
+func datasourceSchemaFromResourceSchema(rs map[string]*schema.Schema, arguments []string, optionalArguments []string) map[string]*schema.Schema {
 	ds := make(map[string]*schema.Schema, len(rs))
 	for k, v := range rs {
 		dv := &schema.Schema{
@@ -362,6 +396,10 @@ func datasourceSchemaFromResourceSchema(rs map[string]*schema.Schema, arguments 
 			dv.Required = false
 		}
 
+		if contains(optionalArguments, k) {
+			dv.Optional = true
+		}
+
 		switch v.Type {
 		case schema.TypeSet:
 			dv.Set = v.Set
@@ -373,7 +411,7 @@ func datasourceSchemaFromResourceSchema(rs map[string]*schema.Schema, arguments 
 			if elem, ok := v.Elem.(*schema.Resource); ok {
 				// handle the case where the Element is a sub-resource
 				dv.Elem = &schema.Resource{
-					Schema: datasourceSchemaFromResourceSchema(elem.Schema),
+					Schema: datasourceSchemaFromResourceSchema(elem.Schema, nil, nil),
 				}
 			} else {
 				// handle simple primitive case

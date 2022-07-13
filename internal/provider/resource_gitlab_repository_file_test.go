@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -10,13 +13,10 @@ import (
 )
 
 func TestAccGitlabRepositoryFile_basic(t *testing.T) {
-	testAccCheck(t)
-
 	var file gitlab.File
 	testProject := testAccCreateProject(t)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabRepositoryFileDestroy,
 		Steps: []resource.TestStep{
@@ -59,15 +59,12 @@ func TestAccGitlabRepositoryFile_basic(t *testing.T) {
 }
 
 func TestAccGitlabRepositoryFile_createSameFileDifferentRepository(t *testing.T) {
-	testAccCheck(t)
-
 	var fooFile gitlab.File
 	var barFile gitlab.File
 	firstTestProject := testAccCreateProject(t)
 	secondTestProject := testAccCreateProject(t)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabRepositoryFileDestroy,
 		Steps: []resource.TestStep{
@@ -91,12 +88,9 @@ func TestAccGitlabRepositoryFile_createSameFileDifferentRepository(t *testing.T)
 }
 
 func TestAccGitlabRepositoryFile_concurrentResources(t *testing.T) {
-	testAccCheck(t)
-
 	testProject := testAccCreateProject(t)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabRepositoryFileDestroy,
 		Steps: []resource.TestStep{
@@ -117,13 +111,10 @@ func TestAccGitlabRepositoryFile_concurrentResources(t *testing.T) {
 }
 
 func TestAccGitlabRepositoryFile_createOnNewBranch(t *testing.T) {
-	testAccCheck(t)
-
 	var file gitlab.File
 	testProject := testAccCreateProject(t)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabRepositoryFileDestroy,
 		Steps: []resource.TestStep{
@@ -142,13 +133,10 @@ func TestAccGitlabRepositoryFile_createOnNewBranch(t *testing.T) {
 }
 
 func TestAccGitlabRepositoryFile_base64EncodingWithTextContent(t *testing.T) {
-	testAccCheck(t)
-
 	var file gitlab.File
 	testProject := testAccCreateProject(t)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabRepositoryFileDestroy,
 		Steps: []resource.TestStep{
@@ -246,6 +234,60 @@ func TestAccGitlabRepositoryFile_base64EncodingWithTextContent(t *testing.T) {
 					}
 				`, testProject.ID),
 				Check: resource.TestCheckResourceAttr("gitlab_repository_file.this", "content", "meow meow meow"),
+			},
+		},
+	})
+}
+
+func TestAccGitlabRepositoryFile_createWithExecuteFilemode(t *testing.T) {
+	testProject := testAccCreateProject(t)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccRequiresAtLeast(t, "14.10") },
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabRepositoryFileDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_repository_file" "this" {
+						project = %d
+						file_path = "meow.txt"
+						branch = "main"
+						content = "bWVvdyBtZW93IG1lb3cgbWVvdyBtZW93Cg=="
+						author_email = "meow@catnip.com"
+						author_name = "Meow Meowington"
+						commit_message = "feature: change launch codes"
+						execute_filemode = false
+					}
+				`, testProject.ID),
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_repository_file.this",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"author_email", "author_name", "commit_message"},
+			},
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_repository_file" "this" {
+						project = %d
+						file_path = "meow.txt"
+						branch = "main"
+						content = "bWVvdyBtZW93IG1lb3cgbWVvdyBtZW93Cg=="
+						author_email = "meow@catnip.com"
+						author_name = "Meow Meowington"
+						commit_message = "feature: change launch codes"
+						execute_filemode = true
+					}
+				`, testProject.ID),
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_repository_file.this",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"author_email", "author_name", "commit_message"},
 			},
 		},
 	})

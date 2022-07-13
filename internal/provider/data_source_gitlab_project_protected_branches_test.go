@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -11,8 +14,7 @@ import (
 func TestAccDataGitlabProjectProtectedBranches_search(t *testing.T) {
 	projectName := fmt.Sprintf("tf-%s", acctest.RandString(5))
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{
 			{

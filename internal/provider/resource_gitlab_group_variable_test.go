@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -16,8 +19,7 @@ func TestAccGitlabGroupVariable_basic(t *testing.T) {
 	var groupVariable gitlab.GroupVariable
 	rString := acctest.RandString(5)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupVariableDestroy,
 		Steps: []resource.TestStep{
@@ -112,8 +114,7 @@ func TestAccGitlabGroupVariable_scope(t *testing.T) {
 
 	defaultValueA := fmt.Sprintf("value-%s-a", rString)
 	defaultValueB := fmt.Sprintf("value-%s-b", rString)
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupVariableDestroy,
 		Steps: []resource.TestStep{

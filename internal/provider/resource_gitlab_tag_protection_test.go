@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -11,12 +14,10 @@ import (
 )
 
 func TestAccGitlabTagProtection_basic(t *testing.T) {
-
 	var pt gitlab.ProtectedTag
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabTagProtectionDestroy,
 		Steps: []resource.TestStep{
@@ -30,6 +31,12 @@ func TestAccGitlabTagProtection_basic(t *testing.T) {
 						CreateAccessLevel: accessLevelValueToName[gitlab.DeveloperPermissions],
 					}),
 				),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_tag_protection.TagProtect",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Update the Tag Protection
 			{
@@ -53,19 +60,23 @@ func TestAccGitlabTagProtection_basic(t *testing.T) {
 					}),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_tag_protection.TagProtect",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
 
 func TestAccGitlabTagProtection_wildcard(t *testing.T) {
-
 	var pt gitlab.ProtectedTag
 	rInt := acctest.RandInt()
 
 	wildcard := "-*"
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabTagProtectionDestroy,
 		Steps: []resource.TestStep{
@@ -80,6 +91,12 @@ func TestAccGitlabTagProtection_wildcard(t *testing.T) {
 					}),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_tag_protection.TagProtect",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Update the Tag Protection
 			{
 				Config: testAccGitlabTagProtectionUpdateConfig(rInt, wildcard),
@@ -90,6 +107,12 @@ func TestAccGitlabTagProtection_wildcard(t *testing.T) {
 						CreateAccessLevel: accessLevelValueToName[gitlab.MasterPermissions],
 					}),
 				),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_tag_protection.TagProtect",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Update the Tag Protection to get back to initial settings
 			{
@@ -102,22 +125,7 @@ func TestAccGitlabTagProtection_wildcard(t *testing.T) {
 					}),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabTagProtection_import(t *testing.T) {
-	rInt := acctest.RandInt()
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabTagProtectionDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccGitlabTagProtectionConfig(rInt, ""),
-			},
+			// Verify Import
 			{
 				ResourceName:      "gitlab_tag_protection.TagProtect",
 				ImportState:       true,

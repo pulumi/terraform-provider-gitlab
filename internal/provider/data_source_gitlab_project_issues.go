@@ -137,8 +137,7 @@ var _ = registerDataSource("gitlab_project_issues", func() *schema.Resource {
 			},
 			"not_milestone": {
 				Description: "Return issues that do not match the milestone.",
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
+				Type:        schema.TypeString,
 				Optional:    true,
 			},
 			"my_reaction_emoji": {
@@ -206,7 +205,7 @@ var _ = registerDataSource("gitlab_project_issues", func() *schema.Resource {
 				Type:        schema.TypeList,
 				Computed:    true,
 				Elem: &schema.Resource{
-					Schema: datasourceSchemaFromResourceSchema(gitlabProjectIssueGetSchema()),
+					Schema: datasourceSchemaFromResourceSchema(gitlabProjectIssueGetSchema(), nil, nil),
 				},
 			},
 		},
@@ -251,7 +250,7 @@ func dataSourceGitlabProjectIssuesRead(ctx context.Context, d *schema.ResourceDa
 	}
 
 	if v, ok := d.GetOk("not_milestone"); ok {
-		options.NotMilestone = stringSetToStringSlice(v.(*schema.Set))
+		options.NotMilestone = gitlab.String(v.(string))
 	}
 
 	if v, ok := d.GetOk("scope"); ok {
@@ -348,7 +347,7 @@ func dataSourceGitlabProjectIssuesRead(ctx context.Context, d *schema.ResourceDa
 
 	var issues []*gitlab.Issue
 	for options.Page != 0 {
-		paginatedIssues, resp, err := client.Issues.ListProjectIssues(project, &options)
+		paginatedIssues, resp, err := client.Issues.ListProjectIssues(project, &options, gitlab.WithContext(ctx))
 		if err != nil {
 			return diag.FromErr(err)
 		}

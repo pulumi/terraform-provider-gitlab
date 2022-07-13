@@ -1,4 +1,114 @@
+## 3.16.1 (2022-07-11)
+
+This release was tested against GitLab 14.10, 15.0 and 15.1 for both CE and EE.
+
+BUG FIXES:
+
+* resource/gitlab_project: Fix admin token requirement to check default branch protection ([#1169](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1169))
+
+## 3.16.0 (2022-07-07)
+
+This release was tested against GitLab 14.10, 15.0 and 15.1 for both CE and EE.
+
+FEATURES:
+
+* **New Data Source:** `gitlab_current_user` ([#1118](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1118))
+* **New Data Source:** `gitlab_release_link` ([#1131](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1131))
+* **New Data Source:** `gitlab_release_links` ([#1131](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1131))
+* **New Resource:** `gitlab_release_link` ([#1131](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1131))
+* **New Resource:** `gitlab_cluster_agent_token` ([#1147](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1147))
+
+IMPROVEMENTS:
+
+* resource/gitlab_project_protected_environment: Add `required_approval_count` attribute ([#1097](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1097))
+* resource/gitlab_project_access_token: Add `owner` as possible value to `access_level` ([#1145](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1145))
+* resource/gitlab_project_membership: Add `owner` as possible value to `access_level` ([#1145](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1145))
+* resource/gitlab_project_share_group: Add `owner` as possible value to `access_level` ([#1145](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1145))
+* resource/gitlab_project: Add `ci_default_git_depth` attribute ([#1146](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1146))
+* datasource/gitlab_project: Add `ci_default_git_depth` attribute ([#1146](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1146))
+* datasource/gitlab_projects: Add `ci_default_git_depth` attribute ([#1146](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1146))
+
+BUG FIXES:
+
+* resource/gitlab_project: Fix project creation when default branch protection is disabled on instance-level ([#1128](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1128))
+* resource/gitlab_project: Fix a case where a change to a project in terraform can never apply when certain fields are modified ([#1158](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1158))
+* resource/gitlab_project: Fix passing `false` to API for explicitly set optional attributes ([#1152](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1152))
+* resource/gitlab_group: Fix passing false to API for explicitly set optional attributes ([#1152](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1152))
+
+## 3.15.1 (2022-06-08)
+
+This release was tested against GitLab 14.9, 14.10 and 15.0 for both CE and EE.
+
+BUG FIXES:
+
+* resource/gitlab_service_microsoft_teams: Fix removal from state when integration is not found ([#1113](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1113))
+
+## 3.15.0 (2022-05-29)
+
+This release was tested against GitLab 14.9, 14.10 and 15.0 for both CE and EE.
+
+FEATURES:
+
+* **New Data Source:** `gitlab_cluster_agent` ([#1073](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1073))
+* **New Data Source:** `gitlab_cluster_agents` ([#1073](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1073))
+* **New Data Source:** `gitlab_project_milestone` ([#1044](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1044))
+* **New Data Source:** `gitlab_project_milestones` ([#1044](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1044))
+* **New Resource:** `gitlab_project_milestone` ([#1044](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1044))
+* **New Resource:** `gitlab_runner` ([#1049](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1049))
+* **New Resource:** `gitlab_cluster_agent` ([#1073](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1073))
+
+IMPROVEMENTS:
+
+* resource/gitlab_group: Allow value `3` for `default_branch_protection` attribute ([#1070](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1070))
+* resource/gitlab_project_badge: Add `name` attribute ([#1052](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1052))
+* resource/gitlab_group: Transfer a subgroup does not longer re-create the group ([#1078](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1078))
+* resource/gitlab_topic: Add `name` attribute ([#1095](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1095))
+
+BUG FIXES:
+
+* resource/gitlab_project_issue: Remove `Optional` from `Computed`-only attributes ([#1081](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1081))
+* datasource/gitlab_project_issues: Fix type of `not_milestone` attribute from list of strings to a single string ([#1095](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1095))
+
+
+## 3.14.0 (2022-05-02)
+
+FEATURES:
+
+* **New Data Source:** `gitlab_project_variable` ([#990](https://github.com/gitlabhq/terraform-provider-gitlab/pull/990))
+* **New Data Source:** `gitlab_project_variables` ([#990](https://github.com/gitlabhq/terraform-provider-gitlab/pull/990))
+* **New Data Source:** `gitlab_group_variable` ([#990](https://github.com/gitlabhq/terraform-provider-gitlab/pull/990))
+* **New Data Source:** `gitlab_group_variables` ([#990](https://github.com/gitlabhq/terraform-provider-gitlab/pull/990))
+* **New Data Source:** `gitlab_instance_variable` ([#990](https://github.com/gitlabhq/terraform-provider-gitlab/pull/990))
+* **New Data Source:** `gitlab_instance_variables` ([#990](https://github.com/gitlabhq/terraform-provider-gitlab/pull/990))
+* **New Resource:** `gitlab_group_project_file_template` ([#971](https://github.com/gitlabhq/terraform-provider-gitlab/pull/971))
+* **New Resource:** `gitlab_service_external_wiki` ([#1003](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1003))
+* **New Resource:** `gitlab_project_runner_enablement` ([#1016](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1016))
+* **New Resource:** `gitlab_personal_access_token` ([#1007](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1007))
+
+IMPROVEMENTS:
+
+* resource/gitlab_deploy_key: Fully support `can_push` attribute ([#1009](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1009))
+* resource/gitlab_deploy_key_enable: Fully support `can_push` attribute ([#1009](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1009))
+* resource/gitlab_group_access_token: Support `owner` as access level ([#999](https://github.com/gitlabhq/terraform-provider-gitlab/pull/999))
+* resource/gitlab_pipeline_trigger: Mark `token` attribute as sensitive ([#1034](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1034))
+* resource/gitlab_project: Deprecate `build_coverage_regex` ([#1036](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1036))
+* resource/gitlab_project_access_token: Add `access_level` attribute ([#997](https://github.com/gitlabhq/terraform-provider-gitlab/pull/997))
+* resource/gitlab_project_protected_environment: Support multiple `deploy_access_levels` ([#1004](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1004))
+* resource/gitlab_project_mirror: Support deletion on destroy ([#988](https://github.com/gitlabhq/terraform-provider-gitlab/pull/988))
+* resource/gitlab_repository_file: Add `execute_filemode` attribute ([#1038](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1038))
+* resource/gitlab_user: Add `namespace_id` attribute ([#987](https://github.com/gitlabhq/terraform-provider-gitlab/pull/987))
+* datasource/gitlab_user: Add `namespace_id` attribute ([#987](https://github.com/gitlabhq/terraform-provider-gitlab/pull/987))
+* datasource/gitlab_users: Add `namespace_id` attribute ([#987](https://github.com/gitlabhq/terraform-provider-gitlab/pull/987))
+
+BUG FIXES:
+
+* resource/gitlab_service_slack: Fix a resource ID bug that causes `gitlab_service_slack` resources that were created before provider version 3.9.0 to return an error. ([#1013](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1013))
+
 ## 3.13.0 (2022-03-30)
+
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
 
 FEATURES:
 
@@ -56,6 +166,10 @@ BUG FIXES:
 
 ## 3.12.0 (2022-03-08)
 
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
+
 FEATURES:
 
 * **New Resource:** `gitlab_project_tag` ([#910](https://github.com/gitlabhq/terraform-provider-gitlab/pull/910))
@@ -78,11 +192,19 @@ BUG FIXES:
 
 ## 3.11.1 (2022-03-02)
 
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
+
 BUG FIXES:
 
 * resource/gitlab_project: fix waiting for default branch protection during creation ([#908](https://github.com/gitlabhq/terraform-provider-gitlab/pull/908))
 
 ## 3.11.0 (2022-03-01)
+
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
 
 FEATURES:
 
@@ -102,14 +224,19 @@ BUG FIXES:
 
 ## 3.10.1 (2022-02-24)
 
-**ATTENTION:** this bug fix release was never released due to [#896](https://github.com/gitlabhq/terraform-provider-gitlab/issues/896).
-Please use `v3.11.0` instead.
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
 
 BUG FIXES:
 
 * resource/gitlab_branch_protection: Fix issue which claimed that `no valid access level` can be found ([#892](https://github.com/gitlabhq/terraform-provider-gitlab/pull/892))
 
 ## 3.10.0 (2022-02-23)
+
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
 
 FEATURES:
 
@@ -142,11 +269,19 @@ BUG FIXES:
 
 ## 3.9.1 (2022-02-06)
 
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
+
 BUGFIXES:
 
 * Fix crash in `gitlab_user` data source
 
 ## 3.9.0 (2022-02-04)
+
+NOTES:
+
+* resource/gitlab_service_slack: There was a breaking change to this resource in version 3.9.0 which was fixed in 3.14.0. Thus, if you have `gitlab_service_slack` resources that were created before 3.9.0, you should skip this version.
 
 FEATURES:
 

@@ -1,11 +1,12 @@
-// lintignore: AT012 // TODO: Resolve this tfproviderlint issue
+//go:build acceptance
+// +build acceptance
 
 package provider
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -24,8 +25,7 @@ func TestAccGitlabProject_minimal(t *testing.T) {
 	var received gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -79,7 +79,6 @@ func TestAccGitlabProject_basic(t *testing.T) {
 		PackagesEnabled:                 true,
 		PrintingMergeRequestLinkEnabled: true,
 		PagesAccessLevel:                gitlab.PublicAccessControl,
-		BuildCoverageRegex:              "foo",
 		IssuesTemplate:                  "",
 		MergeRequestsTemplate:           "",
 		CIConfigPath:                    ".gitlab-ci.yml@mynamespace/myproject",
@@ -99,29 +98,27 @@ func TestAccGitlabProject_basic(t *testing.T) {
 			KeepN:     10,
 			OlderThan: "10d",
 		},
-		ContainerRegistryAccessLevel: gitlab.EnabledAccessControl,
-		EmailsDisabled:               true,
-		ForkingAccessLevel:           gitlab.EnabledAccessControl,
-		IssuesAccessLevel:            gitlab.EnabledAccessControl,
-		MergeRequestsAccessLevel:     gitlab.EnabledAccessControl,
-		OperationsAccessLevel:        gitlab.EnabledAccessControl,
-		PublicBuilds:                 false,
-		RepositoryAccessLevel:        gitlab.EnabledAccessControl,
-		RepositoryStorage:            "default",
-		// FIXME: this is GitLab 14.9 only, which isn't released yet. Thus, wait for it before we can use it here ...
-		// SecurityAndComplianceAccessLevel:         gitlab.EnabledAccessControl,
-		SnippetsAccessLevel:  gitlab.EnabledAccessControl,
-		Topics:               []string{"foo", "bar"},
-		WikiAccessLevel:      gitlab.EnabledAccessControl,
-		SquashCommitTemplate: "hello squash",
-		MergeCommitTemplate:  "hello merge",
+		ContainerRegistryAccessLevel:     gitlab.EnabledAccessControl,
+		EmailsDisabled:                   true,
+		ForkingAccessLevel:               gitlab.EnabledAccessControl,
+		IssuesAccessLevel:                gitlab.EnabledAccessControl,
+		MergeRequestsAccessLevel:         gitlab.EnabledAccessControl,
+		OperationsAccessLevel:            gitlab.EnabledAccessControl,
+		PublicBuilds:                     false,
+		RepositoryAccessLevel:            gitlab.EnabledAccessControl,
+		RepositoryStorage:                "default",
+		SecurityAndComplianceAccessLevel: gitlab.EnabledAccessControl,
+		SnippetsAccessLevel:              gitlab.EnabledAccessControl,
+		Topics:                           []string{"foo", "bar"},
+		WikiAccessLevel:                  gitlab.EnabledAccessControl,
+		SquashCommitTemplate:             "hello squash",
+		MergeCommitTemplate:              "hello merge",
 	}
 
 	defaultsMainBranch = defaults
 	defaultsMainBranch.DefaultBranch = "main"
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -160,7 +157,6 @@ func TestAccGitlabProject_basic(t *testing.T) {
 						Archived:                       true,
 						PackagesEnabled:                false,
 						PagesAccessLevel:               gitlab.DisabledAccessControl,
-						BuildCoverageRegex:             "bar",
 						CIForwardDeploymentEnabled:     false,
 						ResolveOutdatedDiffDiscussions: false,
 						AnalyticsAccessLevel:           gitlab.DisabledAccessControl,
@@ -177,22 +173,21 @@ func TestAccGitlabProject_basic(t *testing.T) {
 							KeepN:     10,
 							OlderThan: "10d",
 						},
-						ContainerRegistryAccessLevel: gitlab.DisabledAccessControl,
-						EmailsDisabled:               false,
-						ForkingAccessLevel:           gitlab.DisabledAccessControl,
-						IssuesAccessLevel:            gitlab.DisabledAccessControl,
-						MergeRequestsAccessLevel:     gitlab.DisabledAccessControl,
-						OperationsAccessLevel:        gitlab.DisabledAccessControl,
-						PublicBuilds:                 false,
-						RepositoryAccessLevel:        gitlab.DisabledAccessControl,
-						RepositoryStorage:            "default",
-						// FIXME: this is GitLab 14.9 only, which isn't released yet. Thus, wait for it before we can use it here ...
-						// SecurityAndComplianceAccessLevel:         gitlab.DisabledAccessControl,
-						SnippetsAccessLevel:  gitlab.DisabledAccessControl,
-						Topics:               []string{},
-						WikiAccessLevel:      gitlab.DisabledAccessControl,
-						SquashCommitTemplate: "goodby squash",
-						MergeCommitTemplate:  "goodby merge",
+						ContainerRegistryAccessLevel:     gitlab.DisabledAccessControl,
+						EmailsDisabled:                   false,
+						ForkingAccessLevel:               gitlab.DisabledAccessControl,
+						IssuesAccessLevel:                gitlab.DisabledAccessControl,
+						MergeRequestsAccessLevel:         gitlab.DisabledAccessControl,
+						OperationsAccessLevel:            gitlab.DisabledAccessControl,
+						PublicBuilds:                     false,
+						RepositoryAccessLevel:            gitlab.DisabledAccessControl,
+						RepositoryStorage:                "default",
+						SecurityAndComplianceAccessLevel: gitlab.DisabledAccessControl,
+						SnippetsAccessLevel:              gitlab.DisabledAccessControl,
+						Topics:                           []string{},
+						WikiAccessLevel:                  gitlab.DisabledAccessControl,
+						SquashCommitTemplate:             "goodby squash",
+						MergeCommitTemplate:              "goodby merge",
 					}, &received),
 				),
 			},
@@ -416,8 +411,7 @@ func TestAccGitlabProject_initializeWithReadme(t *testing.T) {
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -444,8 +438,7 @@ func TestAccGitlabProject_initializeWithoutReadme(t *testing.T) {
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -473,8 +466,7 @@ func TestAccGitlabProject_initializeWithoutReadme(t *testing.T) {
 func TestAccGitlabProject_archiveOnDestroy(t *testing.T) {
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectArchivedOnDestroy,
 		Steps: []resource.TestStep{
@@ -488,8 +480,7 @@ func TestAccGitlabProject_archiveOnDestroy(t *testing.T) {
 func TestAccGitlabProject_setSinglePushRuleToDefault(t *testing.T) {
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -510,8 +501,7 @@ func TestAccGitlabProject_groupWithoutDefaultBranchProtection(t *testing.T) {
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -535,8 +525,7 @@ func TestAccGitlabProject_IssueMergeRequestTemplates(t *testing.T) {
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -566,8 +555,7 @@ func TestAccGitlabProject_MergePipelines(t *testing.T) {
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -593,8 +581,7 @@ func TestAccGitlabProject_MergeTrains(t *testing.T) {
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -620,8 +607,7 @@ func TestAccGitlabProject_willErrorOnAPIFailure(t *testing.T) {
 	var received gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -665,11 +651,10 @@ func TestAccGitlabProject_willErrorOnAPIFailure(t *testing.T) {
 	})
 }
 
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
+// lintignore: AT002 // specialized import test
 func TestAccGitlabProject_import(t *testing.T) {
 	rInt := acctest.RandInt()
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -690,10 +675,10 @@ func TestAccGitlabProject_import(t *testing.T) {
 	})
 }
 
+// lintignore: AT002 // specialized import test
 func TestAccGitlabProject_nestedImport(t *testing.T) {
 	rInt := acctest.RandInt()
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -737,15 +722,13 @@ func TestAccGitlabProject_transfer(t *testing.T) {
 		PackagesEnabled:                 true,
 		PrintingMergeRequestLinkEnabled: true,
 		PagesAccessLevel:                gitlab.PrivateAccessControl,
-		BuildCoverageRegex:              "foo",
 		CIForwardDeploymentEnabled:      true,
 	}
 
 	pathBeforeTransfer := fmt.Sprintf("foogroup-%d/foo-%d", rInt, rInt)
 	pathAfterTransfer := fmt.Sprintf("foo2group-%d/foo-%d", rInt, rInt)
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -772,11 +755,6 @@ func TestAccGitlabProject_transfer(t *testing.T) {
 
 // lintignore: AT002 // not a Terraform import test
 func TestAccGitlabProject_importURL(t *testing.T) {
-	// Since we do some manual setup in this test, we need to handle the test skip first.
-	if os.Getenv(resource.EnvTfAcc) == "" {
-		t.Skip(fmt.Sprintf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc))
-	}
-
 	rInt := acctest.RandInt()
 
 	// Create a base project for importing.
@@ -800,8 +778,7 @@ func TestAccGitlabProject_importURL(t *testing.T) {
 		t.Fatalf("failed to commit file to base project: %v", err)
 	}
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -829,8 +806,7 @@ func TestAccGitlabProject_initializeWithReadmeAndCustomDefaultBranch(t *testing.
 	var project gitlab.Project
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -866,6 +842,202 @@ resource "gitlab_project" "foo" {
 					},
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_project.foo",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme"},
+			},
+		},
+	})
+}
+
+func TestAccGitlabProject_CreateProjectInUserNamespace(t *testing.T) {
+	var project gitlab.Project
+	rInt := acctest.RandInt()
+
+	user := testAccCreateUsers(t, 1)[0]
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccRequiresAtLeast(t, "14.10") },
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabProjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name              = "foo-%d"
+						description       = "Terraform acceptance tests"
+						visibility_level  = "public"
+
+						namespace_id = %d
+					}
+				`, rInt, user.NamespaceID),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGitlabProjectExists("gitlab_project.foo", &project),
+					func(s *terraform.State) error {
+						if project.Namespace.ID != user.NamespaceID {
+							return fmt.Errorf("project was created in namespace %d but expected %d", project.Namespace.ID, user.NamespaceID)
+						}
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+func TestAccGitlabProject_InstanceBranchProtectionDisabled(t *testing.T) {
+	rInt := acctest.RandInt()
+
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabProjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() {
+					settings, _, err := testGitlabClient.Settings.GetSettings()
+					if err != nil {
+						t.Fatalf("failed to get settings: %v", err)
+					}
+					t.Cleanup(func() {
+						if _, _, err := testGitlabClient.Settings.UpdateSettings(&gitlab.UpdateSettingsOptions{DefaultBranchProtection: gitlab.Int(settings.DefaultBranchProtection)}); err != nil {
+							t.Fatalf("failed to update instance-wide default branch protection setting to default: %v", err)
+						}
+					})
+
+					if _, _, err := testGitlabClient.Settings.UpdateSettings(&gitlab.UpdateSettingsOptions{DefaultBranchProtection: gitlab.Int(0)}); err != nil {
+						t.Fatalf("failed to update instance-wide default branch protection setting: %v", err)
+					}
+				},
+				Config: ` `, // requires a space for empty config
+			},
+			// Without explicit default branch
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name                   = "foo-%d"
+						description            = "Terraform acceptance tests"
+						visibility_level       = "public"
+						initialize_with_readme = true
+					}
+				`, rInt),
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_project.foo",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme"},
+			},
+			// Force a destroy for the project so that it can be recreated as the same resource
+			{
+				Config: ` `, // requires a space for empty config
+			},
+			// With explicit default branch set to instance-wide default
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name                   = "foo-%d"
+						description            = "Terraform acceptance tests"
+						visibility_level       = "public"
+						default_branch         = "main"
+						initialize_with_readme = true
+					}
+				`, rInt),
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_project.foo",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme"},
+			},
+			// Force a destroy for the project so that it can be recreated as the same resource
+			{
+				Config: ` `, // requires a space for empty config
+			},
+			// With custom default branch
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name                   = "foo-%d-custom-default-branch"
+						description            = "Terraform acceptance tests"
+						visibility_level       = "public"
+						default_branch         = "foobar-non-default-branch"
+						initialize_with_readme = true
+					}
+				`, rInt),
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_project.foo",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme"},
+			},
+			// Force a destroy for the project so that it can be recreated as the same resource
+			{
+				Config: ` `, // requires a space for empty config
+			},
+			// With `skip_wait_for_default_branch_protection` enabled
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name                   = "foo-%d-custom-default-branch"
+						description            = "Terraform acceptance tests"
+						visibility_level       = "public"
+						initialize_with_readme = true
+
+						skip_wait_for_default_branch_protection = true
+					}
+				`, rInt),
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_project.foo",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme", "skip_wait_for_default_branch_protection"},
+			},
+			// Force a destroy for the project so that it can be recreated as the same resource
+			{
+				Config: ` `, // requires a space for empty config
+			},
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name                   = "foo-%d-custom-default-branch"
+						description            = "Terraform acceptance tests"
+						visibility_level       = "public"
+						initialize_with_readme = true
+
+						skip_wait_for_default_branch_protection = false
+					}
+				`, rInt),
+			},
+			// Check if plan is empty after changing `skip_wait_for_default_branch_protection` attribute
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "foo" {
+						name                   = "foo-%d-custom-default-branch"
+						description            = "Terraform acceptance tests"
+						visibility_level       = "public"
+						initialize_with_readme = true
+
+						skip_wait_for_default_branch_protection = true
+					}
+				`, rInt),
+				PlanOnly: true,
+			},
+			// Verify Import
+			{
+				ResourceName:            "gitlab_project.foo",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme", "skip_wait_for_default_branch_protection"},
+			},
 		},
 	})
 }
@@ -899,12 +1071,7 @@ func testAccCheckGitlabProjectMirroredAttributes(project *gitlab.Project, want *
 }
 
 // lintignore: AT002 // not a Terraform import test
-func TestAccGitlabProject_importURLMirrored(t *testing.T) {
-	// Since we do some manual setup in this test, we need to handle the test skip first.
-	if os.Getenv(resource.EnvTfAcc) == "" {
-		t.Skip(fmt.Sprintf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc))
-	}
-
+func TestAccGitlabProject_ImportURLMirrored(t *testing.T) {
 	var mirror gitlab.Project
 	rInt := acctest.RandInt()
 
@@ -930,7 +1097,6 @@ func TestAccGitlabProject_importURLMirrored(t *testing.T) {
 	}
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -1021,10 +1187,9 @@ func TestAccGitlabProject_importURLMirrored(t *testing.T) {
 func TestAccGitlabProject_templateMutualExclusiveNameAndID(t *testing.T) {
 	rInt := acctest.RandInt()
 
-	// lintignore: AT001 // TODO: Resolve this tfproviderlint issue
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckMutualExclusiveNameAndID(rInt),
@@ -1035,12 +1200,54 @@ func TestAccGitlabProject_templateMutualExclusiveNameAndID(t *testing.T) {
 	})
 }
 
+// Gitlab update project API call requires one from a subset of project fields to be set (See #1157)
+// If only a non-blessed field is changed, this test checks that the provider ensures the code won't return an error.
+func TestAccGitlabProject_UpdateAnalyticsAccessLevel(t *testing.T) {
+	rInt := acctest.RandInt()
+
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabProjectDestroy,
+		Steps: []resource.TestStep{
+			// Create minimal test project
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "this" {
+						name = "foo-%d"
+						visibility_level                = "public"
+						analytics_access_level = "private"
+					}`, rInt),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_project.this",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Update `analytics_access_level`
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "this" {
+						name = "foo-%d"
+						visibility_level = "public"
+						analytics_access_level = "disabled"
+					}`, rInt),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_project.this",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 func TestAccGitlabProject_containerExpirationPolicy(t *testing.T) {
 	var received gitlab.Project
 	rInt := acctest.RandInt()
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectDestroy,
 		Steps: []resource.TestStep{
@@ -1113,6 +1320,70 @@ func TestAccGitlabProject_containerExpirationPolicy(t *testing.T) {
 				ResourceName:      "gitlab_project.this",
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccGitlabProject_DeprecatedBuildCoverageRegex(t *testing.T) {
+	var received gitlab.Project
+	rInt := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabProjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				SkipFunc: isGitLabVersionAtLeast(context.Background(), testGitlabClient, "15.0"),
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "this" {
+						name = "foo-%d"
+						visibility_level = "public"
+
+						build_coverage_regex = "helloWorld"
+					}`, rInt),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGitlabProjectExists("gitlab_project.this", &received),
+				),
+			},
+			{
+				SkipFunc:          isGitLabVersionAtLeast(context.Background(), testGitlabClient, "15.0"),
+				ResourceName:      "gitlab_project.this",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccGitlabProject_SetDefaultFalseBooleansOnCreate(t *testing.T) {
+	rInt := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		CheckDestroy:      testAccCheckGitlabProjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+					resource "gitlab_project" "this" {
+						name             = "foo-%d"
+						visibility_level = "public"
+
+						initialize_with_readme              = false
+						resolve_outdated_diff_discussions   = false
+						auto_devops_enabled                 = false
+						autoclose_referenced_issues         = false
+						emails_disabled                     = false
+						public_builds                       = false
+						merge_pipelines_enabled             = false
+						merge_trains_enabled                = false
+					}`, rInt),
+			},
+			{
+				ResourceName:            "gitlab_project.this",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"initialize_with_readme"},
 			},
 		},
 	})
@@ -1197,11 +1468,11 @@ func testAccCheckAggregateGitlabProject(expected, received *gitlab.Project) reso
 				}
 			}
 
-			if err := resourceGitlabProjectSetToState(testGitlabClient, expectedData, expected); err != nil {
+			if err := resourceGitlabProjectSetToState(context.Background(), testGitlabClient, expectedData, expected); err != nil {
 				return err
 			}
 
-			if err := resourceGitlabProjectSetToState(testGitlabClient, receivedData, received); err != nil {
+			if err := resourceGitlabProjectSetToState(context.Background(), testGitlabClient, receivedData, received); err != nil {
 				return err
 			}
 
@@ -1329,7 +1600,6 @@ resource "gitlab_project" "foo" {
   # So that acceptance tests can be run in a gitlab organization
   # with no billing
   visibility_level = "public"
-  build_coverage_regex = "foo"
 }
 	`, rInt, rInt, rInt)
 }
@@ -1385,7 +1655,6 @@ resource "gitlab_project" "foo" {
   # So that acceptance tests can be run in a gitlab organization
   # with no billing
   visibility_level = "public"
-  build_coverage_regex = "foo"
 }
 
 resource "gitlab_project_variable" "foo" {
@@ -1419,7 +1688,6 @@ resource "gitlab_project" "foo" {
   # So that acceptance tests can be run in a gitlab organization
   # with no billing
   visibility_level = "public"
-  build_coverage_regex = "foo"
 }
 
 resource "gitlab_project_variable" "foo" {
@@ -1459,7 +1727,6 @@ resource "gitlab_project" "foo" {
   only_allow_merge_if_all_discussions_are_resolved = true
   squash_option = "default_off"
   pages_access_level = "public"
-  build_coverage_regex = "foo"
   allow_merge_on_skipped_pipeline = false
   ci_config_path = ".gitlab-ci.yml@mynamespace/myproject"
   resolve_outdated_diff_discussions = true
@@ -1484,13 +1751,13 @@ resource "gitlab_project" "foo" {
   public_builds = false
   repository_access_level = "enabled"
   repository_storage = "default"
-  # FIXME: this is GitLab 14.9 only, which isn't released yet. Thus, wait for it before we can use it here ...
-  # security_and_compliance_access_level = "enabled"
+  security_and_compliance_access_level = "enabled"
   snippets_access_level = "enabled"
   topics = ["foo", "bar"]
   wiki_access_level = "enabled"
   squash_commit_template = "hello squash"
   merge_commit_template = "hello merge"
+  ci_default_git_depth = 42
 }
 	`, rInt, rInt, defaultBranchStatement)
 }
@@ -1559,7 +1826,6 @@ resource "gitlab_project" "foo" {
   archived = true
   packages_enabled = false
   pages_access_level = "disabled"
-  build_coverage_regex = "bar"
   ci_forward_deployment_enabled = false
   merge_pipelines_enabled = false
   merge_trains_enabled = false
@@ -1585,13 +1851,13 @@ resource "gitlab_project" "foo" {
   public_builds = false
   repository_access_level = "disabled"
   repository_storage = "default"
-  # FIXME: this is GitLab 14.9 only, which isn't released yet. Thus, wait for it before we can use it here ...
-  # security_and_compliance_access_level = "disabled"
+  security_and_compliance_access_level = "disabled"
   snippets_access_level = "disabled"
   topics = []
   wiki_access_level = "disabled"
   squash_commit_template = "goodby squash"
   merge_commit_template = "goodby merge"
+  ci_default_git_depth = 84
 }
 	`, rInt, rInt)
 }
@@ -1727,8 +1993,7 @@ resource "gitlab_project" "foo" {
   public_builds = false
   repository_access_level = "enabled"
   repository_storage = "default"
-  # FIXME: this is GitLab 14.9 only, which isn't released yet. Thus, wait for it before we can use it here ...
-  # security_and_compliance_access_level = "enabled"
+  security_and_compliance_access_level = "enabled"
   snippets_access_level = "enabled"
   topics = ["foo", "bar"]
   wiki_access_level = "enabled"
@@ -1899,7 +2164,6 @@ resource "gitlab_project" "foo" {
   only_allow_merge_if_all_discussions_are_resolved = true
   squash_option = "default_off"
   pages_access_level = "public"
-  build_coverage_regex = "foo"
   allow_merge_on_skipped_pipeline = false
   ci_config_path = ".gitlab-ci.yml@mynamespace/myproject"
   resolve_outdated_diff_discussions = true
@@ -1924,13 +2188,13 @@ resource "gitlab_project" "foo" {
   public_builds = false
   repository_access_level = "enabled"
   repository_storage = "default"
-  # FIXME: this is GitLab 14.9 only, which isn't released yet. Thus, wait for it before we can use it here ...
-  # security_and_compliance_access_level = "enabled"
+  security_and_compliance_access_level = "enabled"
   snippets_access_level = "enabled"
   topics = ["foo", "bar"]
   wiki_access_level = "enabled"
   squash_commit_template = "hello squash"
   merge_commit_template = "hello merge"
+  ci_default_git_depth = 42
 
   # EE features
   approvals_before_merge = 2

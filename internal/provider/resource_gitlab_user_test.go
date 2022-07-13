@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -16,8 +19,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 	var user gitlab.User
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabUserDestroy,
 		Steps: []resource.TestStep{
@@ -30,6 +32,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -56,6 +59,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -82,6 +86,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@tttt.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("bar %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  10,
 						Admin:          true,
 						CanCreateGroup: true,
@@ -109,6 +114,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@tttt.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("bar %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  10,
 						Admin:          true,
 						CanCreateGroup: true,
@@ -136,6 +142,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -162,6 +169,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -188,6 +196,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -214,6 +223,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -231,6 +241,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -248,6 +259,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -265,6 +277,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -282,6 +295,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -299,6 +313,7 @@ func TestAccGitlabUser_basic(t *testing.T) {
 						Email:          fmt.Sprintf("listest%d@ssss.com", rInt),
 						Username:       fmt.Sprintf("listest%d", rInt),
 						Name:           fmt.Sprintf("foo %d", rInt),
+						NamespaceID:    user.NamespaceID,
 						ProjectsLimit:  0,
 						Admin:          false,
 						CanCreateGroup: false,
@@ -315,8 +330,7 @@ func TestAccGitlabUser_password_reset(t *testing.T) {
 	var user gitlab.User
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupDestroy,
 		Steps: []resource.TestStep{
@@ -370,6 +384,7 @@ type testAccGitlabUserExpectedAttributes struct {
 	Email          string
 	Username       string
 	Name           string
+	NamespaceID    int
 	ProjectsLimit  int
 	Admin          bool
 	CanCreateGroup bool

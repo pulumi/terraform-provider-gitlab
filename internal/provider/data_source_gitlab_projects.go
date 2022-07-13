@@ -1,5 +1,3 @@
-// lintignore: S031 // TODO: Resolve this tfproviderlint issue
-
 package provider
 
 import (
@@ -192,6 +190,7 @@ func flattenProjects(projects []*gitlab.Project) (values []map[string]interface{
 				"wiki_access_level":                                string(project.WikiAccessLevel),
 				"squash_commit_template":                           project.SquashCommitTemplate,
 				"merge_commit_template":                            project.MergeCommitTemplate,
+				"ci_default_git_depth":                             project.CIDefaultGitDepth,
 			}
 			values = append(values, v)
 		}
@@ -200,7 +199,6 @@ func flattenProjects(projects []*gitlab.Project) (values []map[string]interface{
 }
 
 var _ = registerDataSource("gitlab_projects", func() *schema.Resource {
-	// lintignore: S024 // TODO: Resolve this tfproviderlint issue
 	return &schema.Resource{
 		Description: `The ` + "`gitlab_projects`" + ` data source allows details of multiple projects to be retrieved. Optionally filtered by the set attributes.
 
@@ -212,7 +210,6 @@ var _ = registerDataSource("gitlab_projects", func() *schema.Resource {
 
 		ReadContext: dataSourceGitlabProjectsRead,
 
-		// lintignore: S006 // TODO: Resolve this tfproviderlint issue
 		Schema: map[string]*schema.Schema{
 			"max_queryable_pages": {
 				Description: "The maximum number of project results pages that may be queried. Prevents overloading your Gitlab instance in case of a misconfiguration.",
@@ -224,7 +221,6 @@ var _ = registerDataSource("gitlab_projects", func() *schema.Resource {
 				Description: "The ID of the group owned by the authenticated user to look projects for within. Cannot be used with `min_access_level`, `with_programming_language` or `statistics`.",
 				Type:        schema.TypeInt,
 				Optional:    true,
-				ForceNew:    true,
 			},
 			"page": {
 				Description: "The first page to begin the query on.",
@@ -791,6 +787,9 @@ var _ = registerDataSource("gitlab_projects", func() *schema.Resource {
 							Computed:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeMap,
+								Elem: &schema.Schema{
+									Type: schema.TypeString,
+								},
 							},
 						},
 						"packages_enabled": {
@@ -946,6 +945,12 @@ var _ = registerDataSource("gitlab_projects", func() *schema.Resource {
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
+						"ci_default_git_depth": {
+							Description: "Default number of revisions for shallow cloning.",
+							Type:        schema.TypeInt,
+							Optional:    true,
+							Computed:    true,
+						},
 					},
 				},
 			},
@@ -1099,7 +1104,7 @@ func dataSourceGitlabProjectsRead(ctx context.Context, d *schema.ResourceData, m
 			WithIssuesEnabled:        withIssuesEnabledPtr,
 			WithMergeRequestsEnabled: withMergeRequestsEnabledPtr,
 			WithShared:               withSharedPtr,
-			IncludeSubgroups:         includeSubGroupsPtr,
+			IncludeSubGroups:         includeSubGroupsPtr,
 			WithCustomAttributes:     withCustomAttributesPtr,
 		}
 

@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,7 +18,7 @@ func TestAccGitlabGroupMembership_basic(t *testing.T) {
 	var groupMember gitlab.GroupMember
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{PreCheck: func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupMembershipDestroy,
 		Steps: []resource.TestStep{
@@ -24,7 +27,7 @@ func TestAccGitlabGroupMembership_basic(t *testing.T) {
 			{
 				Config: testAccGitlabGroupMembershipConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(testAccCheckGitlabGroupMembershipExists("gitlab_group_membership.foo", &groupMember), testAccCheckGitlabGroupMembershipAttributes(&groupMember, &testAccGitlabGroupMembershipExpectedAttributes{
-					accessLevel: fmt.Sprintf("developer"), // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
+					accessLevel: "developer",
 				})),
 			},
 
@@ -32,8 +35,8 @@ func TestAccGitlabGroupMembership_basic(t *testing.T) {
 			{
 				Config: testAccGitlabGroupMembershipUpdateConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(testAccCheckGitlabGroupMembershipExists("gitlab_group_membership.foo", &groupMember), testAccCheckGitlabGroupMembershipAttributes(&groupMember, &testAccGitlabGroupMembershipExpectedAttributes{
-					accessLevel: fmt.Sprintf("guest"),      // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
-					expiresAt:   fmt.Sprintf("2099-01-01"), // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
+					accessLevel: "guest",
+					expiresAt:   "2099-01-01",
 				})),
 			},
 
@@ -41,7 +44,7 @@ func TestAccGitlabGroupMembership_basic(t *testing.T) {
 			{
 				Config: testAccGitlabGroupMembershipConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(testAccCheckGitlabGroupMembershipExists("gitlab_group_membership.foo", &groupMember), testAccCheckGitlabGroupMembershipAttributes(&groupMember, &testAccGitlabGroupMembershipExpectedAttributes{
-					accessLevel: fmt.Sprintf("developer"), // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
+					accessLevel: "developer",
 				})),
 			},
 		},

@@ -1,14 +1,14 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
+	"context"
 	"os"
 	"testing"
 
-	// "github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	// "github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -34,27 +34,22 @@ var testGitlabConfig = Config{
 var testGitlabClient *gitlab.Client
 
 func init() {
-	if os.Getenv(resource.EnvTfAcc) != "" {
-		client, err := testGitlabConfig.Client()
-		if err != nil {
-			panic("failed to create test client: " + err.Error()) // lintignore: R009 // TODO: Resolve this tfproviderlint issue
-		}
-		testGitlabClient = client
+	client, err := testGitlabConfig.Client(context.Background())
+	if err != nil {
+		panic("failed to create test client: " + err.Error()) // lintignore: R009 // TODO: Resolve this tfproviderlint issue
 	}
+	testGitlabClient = client
 }
 
 func TestProvider(t *testing.T) {
+	t.Parallel()
+
 	if err := New("dev")().InternalValidate(); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 }
 
 func TestProvider_impl(t *testing.T) {
+	t.Parallel()
 	var _ *schema.Provider = New("dev")()
-}
-
-func testAccPreCheck(t *testing.T) {
-	if v := os.Getenv("GITLAB_TOKEN"); v == "" {
-		t.Fatal("GITLAB_TOKEN must be set for acceptance tests")
-	}
 }

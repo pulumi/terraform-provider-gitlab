@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,8 +18,7 @@ func TestAccGitlabServiceJira_basic(t *testing.T) {
 	rInt := acctest.RandInt()
 	jiraResourceName := "gitlab_service_jira.jira"
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabServiceJiraDestroy,
 		Steps: []resource.TestStep{
@@ -33,6 +35,16 @@ func TestAccGitlabServiceJira_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(jiraResourceName, "comment_on_event_enabled", "false"),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      jiraResourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				// FIXME: there is a bug in the GitLab API which causes the `jira_issue_transition_id` field
+				//        to be empty in the response. Therefore, we ignore it for now in the import.
+				//        See https://gitlab.com/gitlab-org/gitlab/-/issues/362437
+				ImportStateVerifyIgnore: []string{"password", "jira_issue_transition_id"},
+			},
 			// Update the jira service
 			{
 				Config: testAccGitlabServiceJiraUpdateConfig(rInt),
@@ -48,6 +60,16 @@ func TestAccGitlabServiceJira_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(jiraResourceName, "comment_on_event_enabled", "true"),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      jiraResourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				// FIXME: there is a bug in the GitLab API which causes the `jira_issue_transition_id` field
+				//        to be empty in the response. Therefore, we ignore it for now in the import.
+				//        See https://gitlab.com/gitlab-org/gitlab/-/issues/362437
+				ImportStateVerifyIgnore: []string{"password", "jira_issue_transition_id"},
+			},
 			// Update the jira service to get back to previous settings
 			{
 				Config: testAccGitlabServiceJiraConfig(rInt),
@@ -62,31 +84,15 @@ func TestAccGitlabServiceJira_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(jiraResourceName, "comment_on_event_enabled", "false"),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabServiceJira_import(t *testing.T) {
-	jiraResourceName := "gitlab_service_jira.jira"
-	rInt := acctest.RandInt()
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabServiceJiraDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccGitlabServiceJiraConfig(rInt),
-			},
+			// Verify Import
 			{
 				ResourceName:      jiraResourceName,
-				ImportStateIdFunc: getJiraProjectID(jiraResourceName),
 				ImportState:       true,
 				ImportStateVerify: true,
-				ImportStateVerifyIgnore: []string{
-					"password",
-				},
+				// FIXME: there is a bug in the GitLab API which causes the `jira_issue_transition_id` field
+				//        to be empty in the response. Therefore, we ignore it for now in the import.
+				//        See https://gitlab.com/gitlab-org/gitlab/-/issues/362437
+				ImportStateVerifyIgnore: []string{"password", "jira_issue_transition_id"},
 			},
 		},
 	})
@@ -115,17 +121,15 @@ func testAccCheckGitlabServiceJiraExists(n string, service *gitlab.JiraService) 
 
 func testAccCheckGitlabServiceJiraDestroy(s *terraform.State) error {
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "gitlab_project" {
+		if rs.Type != "gitlab_service_jira" {
 			continue
 		}
 
-		gotRepo, _, err := testGitlabClient.Projects.GetProject(rs.Primary.ID, nil)
+		project := rs.Primary.ID
+
+		_, _, err := testGitlabClient.Services.GetJiraService(project)
 		if err == nil {
-			if gotRepo != nil && fmt.Sprintf("%d", gotRepo.ID) == rs.Primary.ID {
-				if gotRepo.MarkedForDeletionAt == nil {
-					return fmt.Errorf("Repository still exists")
-				}
-			}
+			return fmt.Errorf("Jira Service Integration in project %s still exists", project)
 		}
 		if !is404(err) {
 			return err
@@ -133,22 +137,6 @@ func testAccCheckGitlabServiceJiraDestroy(s *terraform.State) error {
 		return nil
 	}
 	return nil
-}
-
-func getJiraProjectID(n string) resource.ImportStateIdFunc {
-	return func(s *terraform.State) (string, error) {
-		rs, ok := s.RootModule().Resources[n]
-		if !ok {
-			return "", fmt.Errorf("Not Found: %s", n)
-		}
-
-		project := rs.Primary.Attributes["project"]
-		if project == "" {
-			return "", fmt.Errorf("No project ID is set")
-		}
-
-		return project, nil
-	}
 }
 
 func testAccGitlabServiceJiraConfig(rInt int) string {

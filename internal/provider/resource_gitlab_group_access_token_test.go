@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -14,11 +17,9 @@ func TestAccGitlabGroupAccessToken_basic(t *testing.T) {
 	var gat testAccGitlabGroupAccessTokenWrapper
 	var groupVariable gitlab.GroupVariable
 
-	testAccCheck(t)
 	testGroup := testAccCreateGroups(t, 1)[0]
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupAccessTokenDestroy,
 		Steps: []resource.TestStep{
@@ -45,6 +46,19 @@ func TestAccGitlabGroupAccessToken_basic(t *testing.T) {
 						scopes:      map[string]bool{"read_repository": false, "api": true, "write_repository": false, "read_api": false},
 						expiresAt:   "2099-05-01",
 						accessLevel: gitlab.AccessLevelValue(gitlab.MaintainerPermissions),
+					}),
+				),
+			},
+			// Update the Group Access Token Access Level to Owner
+			{
+				Config: testAccGitlabGroupAccessTokenUpdateAccessLevel(testGroup.ID),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGitlabGroupAccessTokenExists("gitlab_group_access_token.this", &gat),
+					testAccCheckGitlabGroupAccessTokenAttributes(&gat, &testAccGitlabGroupAccessTokenExpectedAttributes{
+						name:        "my new group token",
+						scopes:      map[string]bool{"read_repository": false, "api": true, "write_repository": false, "read_api": false},
+						expiresAt:   "2099-05-01",
+						accessLevel: gitlab.AccessLevelValue(gitlab.OwnerPermissions),
 					}),
 				),
 			},
@@ -224,6 +238,18 @@ resource "gitlab_group_access_token" "this" {
   group = %d
   expires_at = "2099-05-01"
   access_level = "maintainer"
+  scopes = ["api"]
+}
+	`, groupId)
+}
+
+func testAccGitlabGroupAccessTokenUpdateAccessLevel(groupId int) string {
+	return fmt.Sprintf(`
+resource "gitlab_group_access_token" "this" {
+  name = "my new group token"
+  group = %d
+  expires_at = "2099-05-01"
+  access_level = "owner"
   scopes = ["api"]
 }
 	`, groupId)

@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,10 +18,9 @@ func TestAccGitlabPipelineScheduleVariable_basic(t *testing.T) {
 	var variable gitlab.PipelineVariable
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabProjectDestroy,
+		CheckDestroy:      testAccCheckGitlabPipelineScheduleVariableDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccGitlabPipelineScheduleVariableConfig(rInt),
@@ -29,6 +31,13 @@ func TestAccGitlabPipelineScheduleVariable_basic(t *testing.T) {
 						Value: "test",
 					}),
 				),
+			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_pipeline_schedule_variable.schedule_var",
+				ImportState:       true,
+				ImportStateIdFunc: getPipelineScheduleVariableID("gitlab_pipeline_schedule_variable.schedule_var"),
+				ImportStateVerify: true,
 			},
 			{
 				Config: testAccGitlabPipelineScheduleVariableUpdateConfig(rInt),
@@ -40,6 +49,13 @@ func TestAccGitlabPipelineScheduleVariable_basic(t *testing.T) {
 					}),
 				),
 			},
+			// Verify Import
+			{
+				ResourceName:      "gitlab_pipeline_schedule_variable.schedule_var",
+				ImportState:       true,
+				ImportStateIdFunc: getPipelineScheduleVariableID("gitlab_pipeline_schedule_variable.schedule_var"),
+				ImportStateVerify: true,
+			},
 			{
 				Config: testAccGitlabPipelineScheduleVariableConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(
@@ -50,27 +66,11 @@ func TestAccGitlabPipelineScheduleVariable_basic(t *testing.T) {
 					}),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabPipelineScheduleVariable_import(t *testing.T) {
-	rInt := acctest.RandInt()
-	resourceName := "gitlab_pipeline_schedule_variable.schedule_var"
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabPipelineScheduleVariableDestroy,
-		Steps: []resource.TestStep{
+			// Verify Import
 			{
-				Config: testAccGitlabPipelineScheduleVariableConfig(rInt),
-			},
-			{
-				ResourceName:      resourceName,
+				ResourceName:      "gitlab_pipeline_schedule_variable.schedule_var",
 				ImportState:       true,
-				ImportStateIdFunc: getPipelineScheduleVariableID(resourceName),
+				ImportStateIdFunc: getPipelineScheduleVariableID("gitlab_pipeline_schedule_variable.schedule_var"),
 				ImportStateVerify: true,
 			},
 		},

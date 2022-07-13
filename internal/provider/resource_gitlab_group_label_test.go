@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -14,8 +17,7 @@ func TestAccGitlabGroupLabel_basic(t *testing.T) {
 	var label gitlab.GroupLabel
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabGroupLabelDestroy,
 		Steps: []resource.TestStep{

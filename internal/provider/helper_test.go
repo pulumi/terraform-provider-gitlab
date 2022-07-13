@@ -1,6 +1,10 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/onsi/gomega"
 	"github.com/xanzy/go-gitlab"
 )
@@ -65,31 +68,6 @@ func isRunningInCE() (bool, error) {
 	return !isEE, err
 }
 
-// testAccCheck is a test helper that skips the current test if it is not an acceptance test.
-func testAccCheck(t *testing.T) {
-	t.Helper()
-
-	if os.Getenv(resource.EnvTfAcc) == "" {
-		t.Skip(fmt.Sprintf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc))
-	}
-}
-
-// orSkipFunc accepts many skipFunc and returns "true" if any returns true.
-func orSkipFunc(input ...SkipFunc) SkipFunc {
-	return func() (bool, error) {
-		for _, item := range input {
-			result, err := item()
-			if err != nil {
-				return false, err
-			}
-			if result {
-				return result, nil
-			}
-		}
-		return false, nil
-	}
-}
-
 // testAccCheckEE is a test helper that skips the current test if the GitLab version is not GitLab Enterprise.
 // This is useful when the version needs to be checked during setup, before the Terraform acceptance test starts.
 func testAccCheckEE(t *testing.T) {
@@ -103,6 +81,37 @@ func testAccCheckEE(t *testing.T) {
 	if !strings.HasSuffix(version.Version, "-ee") {
 		t.Skipf("Test is skipped for non-Enterprise version of GitLab (was %q)", version.String())
 	}
+}
+
+func testAccRequiresLessThan(t *testing.T, requiredMaxVersion string) {
+	isLessThan, err := isGitLabVersionLessThan(context.TODO(), testGitlabClient, requiredMaxVersion)()
+	if err != nil {
+		t.Fatalf("Failed to fetch GitLab version: %+v", err)
+	}
+
+	if !isLessThan {
+		t.Skipf("This test is only valid for GitLab versions less than %s", requiredMaxVersion)
+	}
+}
+
+func testAccRequiresAtLeast(t *testing.T, requiredMinVersion string) {
+	isAtLeast, err := isGitLabVersionAtLeast(context.TODO(), testGitlabClient, requiredMinVersion)()
+	if err != nil {
+		t.Fatalf("Failed to fetch GitLab version: %+v", err)
+	}
+
+	if !isAtLeast {
+		t.Skipf("This test is only valid for GitLab versions newer than %s", requiredMinVersion)
+	}
+}
+
+func testAccIsRunningAtLeast(t *testing.T, requiredMinVersion string) bool {
+	isAtLeast, err := isGitLabVersionAtLeast(context.TODO(), testGitlabClient, requiredMinVersion)()
+	if err != nil {
+		t.Fatalf("Failed to fetch GitLab version: %+v", err)
+	}
+
+	return isAtLeast
 }
 
 // testAccCurrentUser is a test helper for getting the current user of the provided client.
@@ -119,16 +128,29 @@ func testAccCurrentUser(t *testing.T) *gitlab.User {
 
 // testAccCreateProject is a test helper for creating a project.
 func testAccCreateProject(t *testing.T) *gitlab.Project {
+	return testAccCreateProjectWithNamespace(t, 0)
+}
+
+// testAccCreateProjectWithNamespace is a test helper for creating a project. This method accepts a namespace to great a project
+// within a group
+func testAccCreateProjectWithNamespace(t *testing.T, namespaceID int) *gitlab.Project {
 	t.Helper()
 
-	project, _, err := testGitlabClient.Projects.CreateProject(&gitlab.CreateProjectOptions{
+	options := &gitlab.CreateProjectOptions{
 		Name:        gitlab.String(acctest.RandomWithPrefix("acctest")),
 		Description: gitlab.String("Terraform acceptance tests"),
 		// So that acceptance tests can be run in a gitlab organization with no billing.
 		Visibility: gitlab.Visibility(gitlab.PublicVisibility),
 		// So that a branch is created.
 		InitializeWithReadme: gitlab.Bool(true),
-	})
+	}
+
+	//Apply a namespace if one is passed in.
+	if namespaceID != 0 {
+		options.NamespaceID = gitlab.Int(namespaceID)
+	}
+
+	project, _, err := testGitlabClient.Projects.CreateProject(options)
 	if err != nil {
 		t.Fatalf("could not create test project: %v", err)
 	}
@@ -245,6 +267,45 @@ func testAccCreateProtectedBranches(t *testing.T, project *gitlab.Project, n int
 	return protectedBranches
 }
 
+// testAccCreateReleases is a test helper for creating a specified number of releases.
+// It assumes the project will be destroyed at the end of the test and will not cleanup created releases.
+func testAccCreateReleases(t *testing.T, project *gitlab.Project, n int) []*gitlab.Release {
+	t.Helper()
+
+	releases := make([]*gitlab.Release, n)
+	linkType := gitlab.LinkTypeValue("other")
+	linkURL1 := fmt.Sprintf("https://test/%v", *gitlab.String(acctest.RandomWithPrefix("acctest")))
+	linkURL2 := fmt.Sprintf("https://test/%v", *gitlab.String(acctest.RandomWithPrefix("acctest")))
+
+	for i := range releases {
+		var err error
+		releases[i], _, err = testGitlabClient.Releases.CreateRelease(project.ID, &gitlab.CreateReleaseOptions{
+			Name:    gitlab.String(acctest.RandomWithPrefix("acctest")),
+			TagName: gitlab.String(acctest.RandomWithPrefix("acctest")),
+			Ref:     &project.DefaultBranch,
+			Assets: &gitlab.ReleaseAssetsOptions{
+				Links: []*gitlab.ReleaseAssetLinkOptions{
+					{
+						Name:     gitlab.String(acctest.RandomWithPrefix("acctest")),
+						URL:      &linkURL1,
+						LinkType: &linkType,
+					},
+					{
+						Name:     gitlab.String(acctest.RandomWithPrefix("acctest")),
+						URL:      &linkURL2,
+						LinkType: &linkType,
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("could not create test releases: %v", err)
+		}
+	}
+
+	return releases
+}
+
 // testAccAddProjectMembers is a test helper for adding users as members of a project.
 // It assumes the project will be destroyed at the end of the test and will not cleanup members.
 func testAccAddProjectMembers(t *testing.T, pid interface{}, users []*gitlab.User) {
@@ -259,6 +320,28 @@ func testAccAddProjectMembers(t *testing.T, pid interface{}, users []*gitlab.Use
 			t.Fatalf("could not add test project member: %v", err)
 		}
 	}
+}
+
+func testAccCreateClusterAgents(t *testing.T, pid interface{}, n int) []*gitlab.Agent {
+	t.Helper()
+
+	var clusterAgents []*gitlab.Agent
+	for i := 0; i < n; i++ {
+		clusterAgent, _, err := testGitlabClient.ClusterAgents.RegisterAgent(pid, &gitlab.RegisterAgentOptions{
+			Name: gitlab.String(fmt.Sprintf("agent-%d", i)),
+		})
+		if err != nil {
+			t.Fatalf("could not create test cluster agent: %v", err)
+		}
+		t.Cleanup(func() {
+			_, err := testGitlabClient.ClusterAgents.DeleteAgent(pid, clusterAgent.ID)
+			if err != nil {
+				t.Fatalf("could not cleanup test cluster agent: %v", err)
+			}
+		})
+		clusterAgents = append(clusterAgents, clusterAgent)
+	}
+	return clusterAgents
 }
 
 func testAccCreateProjectIssues(t *testing.T, pid interface{}, n int) []*gitlab.Issue {
@@ -296,20 +379,25 @@ func testAccAddGroupMembers(t *testing.T, gid interface{}, users []*gitlab.User)
 	}
 }
 
-func testAccAddProjectMilestone(t *testing.T, pid interface{}) *gitlab.Milestone {
+// testAccAddProjectMilestones is a test helper for adding milestones to project.
+// It assumes the group will be destroyed at the end of the test and will not cleanup milestones.
+func testAccAddProjectMilestones(t *testing.T, project *gitlab.Project, n int) []*gitlab.Milestone {
 	t.Helper()
 
-	milestone, _, err := testGitlabClient.Milestones.CreateMilestone(pid, &gitlab.CreateMilestoneOptions{Title: gitlab.String("Test Milestone")})
-	if err != nil {
-		t.Fatalf("failed to create milestone during test for project %v: %v", pid, err)
-	}
-	t.Cleanup(func() {
-		_, err := testGitlabClient.Milestones.DeleteMilestone(pid, milestone.ID)
+	milestones := make([]*gitlab.Milestone, n)
+
+	for i := range milestones {
+		var err error
+		milestones[i], _, err = testGitlabClient.Milestones.CreateMilestone(project.ID, &gitlab.CreateMilestoneOptions{
+			Title:       gitlab.String(fmt.Sprintf("Milestone %d", i)),
+			Description: gitlab.String(fmt.Sprintf("Description %d", i)),
+		})
 		if err != nil {
-			t.Fatalf("failed to delete milestone %d during test for project %v: %v", milestone.ID, pid, err)
+			t.Fatalf("Could not create test milestones: %v", err)
 		}
-	})
-	return milestone
+	}
+
+	return milestones
 }
 
 func testAccCreateDeployKey(t *testing.T, projectID int, options *gitlab.AddDeployKeyOptions) *gitlab.ProjectDeployKey {
@@ -351,6 +439,60 @@ func testAccCreateProjectEnvironment(t *testing.T, projectID int, options *gitla
 	return projectEnvironment
 }
 
+func testAccCreateProjectVariable(t *testing.T, projectID int) *gitlab.ProjectVariable {
+	variable, _, err := testGitlabClient.ProjectVariables.CreateVariable(projectID, &gitlab.CreateProjectVariableOptions{
+		Key:   gitlab.String(fmt.Sprintf("test_key_%d", acctest.RandInt())),
+		Value: gitlab.String("test_value"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		if _, err := testGitlabClient.ProjectVariables.RemoveVariable(projectID, variable.Key, nil); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	return variable
+}
+
+func testAccCreateGroupVariable(t *testing.T, groupID int) *gitlab.GroupVariable {
+	variable, _, err := testGitlabClient.GroupVariables.CreateVariable(groupID, &gitlab.CreateGroupVariableOptions{
+		Key:   gitlab.String(fmt.Sprintf("test_key_%d", acctest.RandInt())),
+		Value: gitlab.String("test_value"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		if _, err := testGitlabClient.GroupVariables.RemoveVariable(groupID, variable.Key, nil); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	return variable
+}
+
+func testAccCreateInstanceVariable(t *testing.T) *gitlab.InstanceVariable {
+	variable, _, err := testGitlabClient.InstanceVariables.CreateVariable(&gitlab.CreateInstanceVariableOptions{
+		Key:   gitlab.String(fmt.Sprintf("test_key_%d", acctest.RandInt())),
+		Value: gitlab.String("test_value"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		if _, err := testGitlabClient.InstanceVariables.RemoveVariable(variable.Key, nil); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	return variable
+}
+
 // testAccGitlabProjectContext encapsulates a GitLab client and test project to be used during an
 // acceptance test.
 type testAccGitlabProjectContext struct {
@@ -362,7 +504,7 @@ type testAccGitlabProjectContext struct {
 // call testAccGitlabProjectContext.finish() when finished with the testAccGitlabProjectContext.
 func testAccGitlabProjectStart(t *testing.T) testAccGitlabProjectContext {
 	if os.Getenv(resource.EnvTfAcc) == "" {
-		t.Skip(fmt.Sprintf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc))
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
 		return testAccGitlabProjectContext{}
 	}
 
@@ -385,14 +527,6 @@ func testAccGitlabProjectStart(t *testing.T) testAccGitlabProjectContext {
 	return testAccGitlabProjectContext{
 		t:       t,
 		project: project,
-	}
-}
-
-// testCheckResourceAttrLazy works like resource.TestCheckResourceAttr, but lazy evaluates the value parameter.
-// See also: resource.TestCheckResourceAttrPtr.
-func testCheckResourceAttrLazy(name string, key string, value func() string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		return resource.TestCheckResourceAttr(name, key, value())(s)
 	}
 }
 

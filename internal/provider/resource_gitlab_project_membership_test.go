@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -15,7 +18,7 @@ func TestAccGitlabProjectMembership_basic(t *testing.T) {
 	var membership gitlab.ProjectMember
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{PreCheck: func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectMembershipDestroy,
 		Steps: []resource.TestStep{
@@ -24,7 +27,7 @@ func TestAccGitlabProjectMembership_basic(t *testing.T) {
 			{
 				Config: testAccGitlabProjectMembershipConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(testAccCheckGitlabProjectMembershipExists("gitlab_project_membership.foo", &membership), testAccCheckGitlabProjectMembershipAttributes(&membership, &testAccGitlabProjectMembershipExpectedAttributes{
-					access_level: fmt.Sprintf("developer"), // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
+					access_level: "developer",
 				})),
 			},
 
@@ -32,7 +35,8 @@ func TestAccGitlabProjectMembership_basic(t *testing.T) {
 			{
 				Config: testAccGitlabProjectMembershipUpdateConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(testAccCheckGitlabProjectMembershipExists("gitlab_project_membership.foo", &membership), testAccCheckGitlabProjectMembershipAttributes(&membership, &testAccGitlabProjectMembershipExpectedAttributes{
-					access_level: fmt.Sprintf("guest"), // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
+					access_level: "guest",
+					expiresAt:    "2099-01-01",
 				})),
 			},
 
@@ -40,7 +44,7 @@ func TestAccGitlabProjectMembership_basic(t *testing.T) {
 			{
 				Config: testAccGitlabProjectMembershipConfig(rInt),
 				Check: resource.ComposeTestCheckFunc(testAccCheckGitlabProjectMembershipExists("gitlab_project_membership.foo", &membership), testAccCheckGitlabProjectMembershipAttributes(&membership, &testAccGitlabProjectMembershipExpectedAttributes{
-					access_level: fmt.Sprintf("developer"), // nolint // TODO: Resolve this golangci-lint issue: S1039: unnecessary use of fmt.Sprintf (gosimple)
+					access_level: "developer",
 				})),
 			},
 		},
@@ -77,6 +81,7 @@ func testAccCheckGitlabProjectMembershipExists(n string, membership *gitlab.Proj
 
 type testAccGitlabProjectMembershipExpectedAttributes struct {
 	access_level string
+	expiresAt    string
 }
 
 func testAccCheckGitlabProjectMembershipAttributes(membership *gitlab.ProjectMember, want *testAccGitlabProjectMembershipExpectedAttributes) resource.TestCheckFunc {
@@ -148,6 +153,7 @@ func testAccGitlabProjectMembershipUpdateConfig(rInt int) string {
 resource "gitlab_project_membership" "foo" {
   project_id = "${gitlab_project.foo.id}"
   user_id = "${gitlab_user.test.id}"
+  expires_at = "2099-01-01"
   access_level = "guest"
 }
 

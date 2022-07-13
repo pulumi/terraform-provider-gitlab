@@ -1,3 +1,6 @@
+//go:build acceptance
+// +build acceptance
+
 package provider
 
 import (
@@ -14,8 +17,8 @@ func TestAccGitlabProjectCluster_basic(t *testing.T) {
 	var cluster gitlab.ProjectCluster
 	rInt := acctest.RandInt()
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccRequiresLessThan(t, "15.0") },
 		ProviderFactories: providerFactories,
 		CheckDestroy:      testAccCheckGitlabProjectClusterDestroy,
 		Steps: []resource.TestStep{
@@ -96,22 +99,7 @@ func TestAccGitlabProjectCluster_basic(t *testing.T) {
 					}),
 				),
 			},
-		},
-	})
-}
-
-// lintignore: AT002 // TODO: Resolve this tfproviderlint issue
-func TestAccGitlabProjectCluster_import(t *testing.T) {
-	rInt := acctest.RandInt()
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: providerFactories,
-		CheckDestroy:      testAccCheckGitlabProjectClusterDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccGitlabProjectClusterConfig(rInt, true),
-			},
+			// Verify Import
 			{
 				ResourceName:            "gitlab_project_cluster.foo",
 				ImportState:             true,
