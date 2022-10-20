@@ -225,6 +225,46 @@ func testAccCreateGroups(t *testing.T, n int) []*gitlab.Group {
 	return groups
 }
 
+// testAccCreateSubGroups is a test helper for creating a specified number of subgroups.
+func testAccCreateSubGroups(t *testing.T, parentGroup *gitlab.Group, n int) []*gitlab.Group {
+	t.Helper()
+
+	groups := make([]*gitlab.Group, n)
+
+	for i := range groups {
+		var err error
+		name := acctest.RandomWithPrefix("acctest-group")
+		groups[i], _, err = testGitlabClient.Groups.CreateGroup(&gitlab.CreateGroupOptions{
+			Name: gitlab.String(name),
+			Path: gitlab.String(name),
+			// So that acceptance tests can be run in a gitlab organization with no billing.
+			Visibility: gitlab.Visibility(gitlab.PublicVisibility),
+			ParentID:   gitlab.Int(parentGroup.ID),
+		})
+		if err != nil {
+			t.Fatalf("could not create test subgroup: %v", err)
+		}
+	}
+
+	return groups
+}
+
+func testAccCreateGroupHooks(t *testing.T, gid interface{}, n int) []*gitlab.GroupHook {
+	t.Helper()
+
+	var hooks []*gitlab.GroupHook
+	for i := 0; i < n; i++ {
+		hook, _, err := testGitlabClient.Groups.AddGroupHook(gid, &gitlab.AddGroupHookOptions{
+			URL: gitlab.String(fmt.Sprintf("https://%s.com", acctest.RandomWithPrefix("acctest"))),
+		})
+		if err != nil {
+			t.Fatalf("could not create group hook: %v", err)
+		}
+		hooks = append(hooks, hook)
+	}
+	return hooks
+}
+
 // testAccCreateBranches is a test helper for creating a specified number of branches.
 // It assumes the project will be destroyed at the end of the test and will not cleanup created branches.
 func testAccCreateBranches(t *testing.T, project *gitlab.Project, n int) []*gitlab.Branch {
@@ -322,6 +362,22 @@ func testAccAddProjectMembers(t *testing.T, pid interface{}, users []*gitlab.Use
 	}
 }
 
+func testAccCreateProjectHooks(t *testing.T, pid interface{}, n int) []*gitlab.ProjectHook {
+	t.Helper()
+
+	var hooks []*gitlab.ProjectHook
+	for i := 0; i < n; i++ {
+		hook, _, err := testGitlabClient.Projects.AddProjectHook(pid, &gitlab.AddProjectHookOptions{
+			URL: gitlab.String(fmt.Sprintf("https://%s.com", acctest.RandomWithPrefix("acctest"))),
+		})
+		if err != nil {
+			t.Fatalf("could not create project hook: %v", err)
+		}
+		hooks = append(hooks, hook)
+	}
+	return hooks
+}
+
 func testAccCreateClusterAgents(t *testing.T, pid interface{}, n int) []*gitlab.Agent {
 	t.Helper()
 
@@ -361,6 +417,32 @@ func testAccCreateProjectIssues(t *testing.T, pid interface{}, n int) []*gitlab.
 		issues = append(issues, issue)
 	}
 	return issues
+}
+
+func testAccCreateProjectIssueBoard(t *testing.T, pid interface{}) *gitlab.IssueBoard {
+	t.Helper()
+
+	issueBoard, _, err := testGitlabClient.Boards.CreateIssueBoard(pid, &gitlab.CreateIssueBoardOptions{Name: gitlab.String(acctest.RandomWithPrefix("acctest"))})
+	if err != nil {
+		t.Fatalf("could not create test issue board: %v", err)
+	}
+
+	return issueBoard
+}
+
+func testAccCreateProjectLabels(t *testing.T, pid interface{}, n int) []*gitlab.Label {
+	t.Helper()
+
+	var labels []*gitlab.Label
+	for i := 0; i < n; i++ {
+		label, _, err := testGitlabClient.Labels.CreateLabel(pid, &gitlab.CreateLabelOptions{Name: gitlab.String(acctest.RandomWithPrefix("acctest")), Color: gitlab.String("#000000")})
+		if err != nil {
+			t.Fatalf("could not create test label: %v", err)
+		}
+		labels = append(labels, label)
+	}
+
+	return labels
 }
 
 // testAccAddGroupMembers is a test helper for adding users as members of a group.
@@ -491,6 +573,30 @@ func testAccCreateInstanceVariable(t *testing.T) *gitlab.InstanceVariable {
 	})
 
 	return variable
+}
+
+func testAccCreateProjectFile(t *testing.T, projectID int, fileContent string, filePath string, branch string) *gitlab.FileInfo {
+
+	file, _, err := testGitlabClient.RepositoryFiles.CreateFile(projectID, filePath, &gitlab.CreateFileOptions{
+		Branch:        &branch,
+		Encoding:      gitlab.String("base64"),
+		Content:       &fileContent,
+		CommitMessage: gitlab.String(fmt.Sprintf("Random_Commit_Message_%d", acctest.RandInt())),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		if _, err := testGitlabClient.RepositoryFiles.DeleteFile(projectID, filePath, &gitlab.DeleteFileOptions{
+			Branch:        &branch,
+			CommitMessage: gitlab.String(fmt.Sprintf("Delete_Random_Commit_Message_%d", acctest.RandInt())),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	return file
 }
 
 // testAccGitlabProjectContext encapsulates a GitLab client and test project to be used during an

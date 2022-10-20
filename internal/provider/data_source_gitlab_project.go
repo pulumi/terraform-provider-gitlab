@@ -249,8 +249,8 @@ var _ = registerDataSource("gitlab_project", func() *schema.Resource {
 			},
 			"repository_storage": {
 				Description: "	Which storage shard the repository is on. (administrator only)",
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"requirements_access_level": {
 				Description: fmt.Sprintf("Set the requirements access level. Valid values are %s.", renderValueListForDocs(validProjectAccessLevels)),
@@ -293,6 +293,11 @@ var _ = registerDataSource("gitlab_project", func() *schema.Resource {
 				Description: "Default number of revisions for shallow cloning.",
 				Type:        schema.TypeInt,
 				Optional:    true,
+				Computed:    true,
+			},
+			"ci_config_path": {
+				Description: "CI config file path for the project.",
+				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"push_rules": {
@@ -436,6 +441,7 @@ func dataSourceGitlabProjectRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("squash_commit_template", found.SquashCommitTemplate)
 	d.Set("merge_commit_template", found.MergeCommitTemplate)
 	d.Set("ci_default_git_depth", found.CIDefaultGitDepth)
+	d.Set("ci_config_path", found.CIConfigPath)
 
 	log.Printf("[DEBUG] Reading Gitlab project %q push rules", d.Id())
 

@@ -317,7 +317,7 @@ var resourceGitLabProjectSchema = map[string]*schema.Schema{
 		ForceNew:      true,
 	},
 	"template_project_id": {
-		Description:   "When used with use_custom_template, project ID of a custom project template. This is preferable to using template_name since template_name may be ambiguous (enterprise edition). This option is mutually exclusive with `template_name`.",
+		Description:   "When used with use_custom_template, project ID of a custom project template. This is preferable to using template_name since template_name may be ambiguous (enterprise edition). This option is mutually exclusive with `template_name`. See `gitlab_group_project_file_template` to set a project as a template project. If a project has not been set as a template, using it here will result in an error.",
 		Type:          schema.TypeInt,
 		Optional:      true,
 		ConflictsWith: []string{"template_name"},
@@ -540,9 +540,9 @@ var resourceGitLabProjectSchema = map[string]*schema.Schema{
 	},
 	"repository_storage": {
 		Description: "	Which storage shard the repository is on. (administrator only)",
-		Type:     schema.TypeString,
-		Optional: true,
-		Computed: true,
+		Type:        schema.TypeString,
+		Optional:    true,
+		Computed:    true,
 	},
 	"requirements_access_level": {
 		Description:      fmt.Sprintf("Set the requirements access level. Valid values are %s.", renderValueListForDocs(validProjectAccessLevels)),
@@ -811,7 +811,6 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 		Mirror:                                    gitlab.Bool(d.Get("mirror").(bool)),
 		MirrorTriggerBuilds:                       gitlab.Bool(d.Get("mirror_trigger_builds").(bool)),
 		CIConfigPath:                              gitlab.String(d.Get("ci_config_path").(string)),
-		CIForwardDeploymentEnabled:                gitlab.Bool(d.Get("ci_forward_deployment_enabled").(bool)),
 	}
 
 	if v, ok := d.GetOk("build_coverage_regex"); ok {
@@ -1203,6 +1202,12 @@ func resourceGitlabProjectCreate(ctx context.Context, d *schema.ResourceData, me
 
 	if v, ok := d.GetOk("ci_default_git_depth"); ok {
 		editProjectOptions.CIDefaultGitDepth = gitlab.Int(v.(int))
+	}
+
+	// nolint:staticcheck // SA1019 ignore deprecated GetOkExists
+	// lintignore: XR001 // TODO: replace with alternative for GetOkExists
+	if v, ok := d.GetOkExists("ci_forward_deployment_enabled"); ok {
+		editProjectOptions.CIForwardDeploymentEnabled = gitlab.Bool(v.(bool))
 	}
 
 	if (editProjectOptions != gitlab.EditProjectOptions{}) {
