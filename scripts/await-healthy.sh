@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+set -e
+
 printf 'Waiting for GitLab container to become healthy'
 
 until test -n "$(docker ps --quiet --filter label=terraform-provider-gitlab/owned --filter health=healthy)"; do
@@ -8,8 +10,8 @@ until test -n "$(docker ps --quiet --filter label=terraform-provider-gitlab/owne
 done
 
 echo
-echo 'GitLab is healthy'
+echo "GitLab is healthy at $GITLAB_BASE_URL"
 
 # Print the version, since it is useful debugging information.
-curl --silent --show-error --header 'Authorization: Bearer ACCTEST1234567890123' http://127.0.0.1:8080/api/v4/version
+curl --silent --show-error --header "Authorization: Bearer $GITLAB_TOKEN" "$GITLAB_BASE_URL/version"
 echo

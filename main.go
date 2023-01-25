@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"log"
 
-	"github.com/gitlabhq/terraform-provider-gitlab/internal/provider"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6/tf6server"
+
+	"gitlab.com/gitlab-org/terraform-provider-gitlab/internal/provider"
 )
 
 var (
@@ -14,11 +17,25 @@ var (
 )
 
 func main() {
-	var debugMode bool
-
-	flag.BoolVar(&debugMode, "debug", false, "set to true to run the provider with support for debuggers like delve")
+	debugFlag := flag.Bool("debug", false, "Start provider in debug mode.")
 	flag.Parse()
 
-	opts := &plugin.ServeOpts{ProviderFunc: provider.New(version), Debug: debugMode, ProviderAddr: "registry.terraform.io/providers/gitlabhq/gitlab"}
-	plugin.Serve(opts)
+	var serveOpts []tf6server.ServeOpt
+	if *debugFlag {
+		serveOpts = append(serveOpts, tf6server.WithManagedDebug())
+	}
+
+	serverFactory, err := provider.NewMuxedProviderServer(context.Background(), version)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = tf6server.Serve(
+		"registry.terraform.io/providers/gitlabhq/gitlab",
+		serverFactory,
+		serveOpts...,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

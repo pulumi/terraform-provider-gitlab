@@ -1,8 +1,114 @@
+## 15.8.0 (2023-01-22)
+
+This release was tested against GitLab 15.6, 15.7 and 15.8 for both CE and EE.
+
+FEATURES:
+
+* provider: mask `token` in provider logs ([#1394](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1394))
+
+IMPROVEMENTS:
+
+* resource/gitlab_project: Add `ip_restriction_ranges` attribute ([#1392](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1392))
+* datasource/gitlab_group_membership: Add `inherited` attribute to include inherited memberships ([#1402](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1402))
+
+BUG FIXES:
+
+* provider: Fix `early_auth_check` always set to `true` ([#1414](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1414))
+* resource/gitlab_project_share_group: Fix refreshing shared groups of a project ([#1412](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1412))
+* resource/gitlab_project_protected_environment: Fix perpetual diffs of `deploy_access_levels` ([#1421](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1421))
+* resource/gitlab_project_approval_rule: auto-import default `any_approver` rule during create ([#1425](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1425))
+* resource/gitlab_group: Mark `shared_runners_minutes_limit` and `extra_shared_runners_minutes_limit` as `Computed` ([#1423](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1423))
+* datasource/gitlab_projects: Support validation for all valid `order_by` values ([#1429](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1429))
+
+## 15.7.1 (2022-12-23)
+
+This release was tested against GitLab 15.5, 15.6 and 15.7 for both CE and EE.
+
+BUG FIXES:
+
+* provider: default to `gitlab.com` as base URL if it is not provided ([#1400](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1400))
+
+## 15.7.0 (2022-12-22)
+
+* This release was tested against GitLab 15.5, 15.6 and 15.7 for both CE and EE.
+* This is the first release aligned with GitLab. See [#1331](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/issues/1331).
+
+BREAKING CHANGES:
+
+See [Terraform GitLab Provider Version 15.7 Upgrade Guide](https://registry.terraform.io/providers/gitlabhq/gitlab/latest/docs/guides/version-15.7-upgrade) for details.
+
+* Require at least Terraform 1.0 and Terraform Protocol Version 6 ([#1336](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1336))
+* Provider `token` argument has changed to `sensitive` ([#1385](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1385))
+
+FEATURES:
+
+* resource/gitlab_project: Support forking a project ([#1377](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1377))
+* resource/gitlab_project: Support avatars ([#1387](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1387))
+* resource/gitlab_group: Support avatars ([#1387](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1387))
+* **New Data Source**: `gitlab_metadata` ([#1355](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1355))
+
+IMPROVEMENTS:
+
+* resource/gitlab_project: Add `ci_separated_caches` attribute ([#1320](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1320))
+* datasource/gitlab_project: Add `ci_separated_catches` attribute ([#1320](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1320))
+* resource/gitlab_project: Rely on API defaults to only send minimal requests ([#1376](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1376))
+* resource/gitlab_project: Add `restrict_user_defined_variables` attribute ([#1372](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1372))
+* resource/gitlab_repository_file: Add `overwrite_on_create` attribute ([#1374](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1374))
+
+BUG FIXES:
+
+* resource/gitlab_user: Fix suppress logic for `skip_confirmation` attribute ([#1375](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1375))
+* resource/gitlab_project: Fix disabling `container_expiration_policy` ([#1386](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1386))
+
+## 3.20.0 (2022-11-25)
+
+This release was tested against GitLab 15.4, 15.5 and 15.6 for both CE and EE.
+
+FEATURES:
+
+* **New Data Source:** `gitlab_groups` ([#1252](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1252))
+* **New Data Source:** `gitlab_group_subgroups` ([#1280](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1280))
+* **New Data Source:** `gitlab_user_sshkeys` ([#1296](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1296))
+
+IMPROVEMENTS:
+
+* resource/gitlab_project: deprecate `pipelines_enabled` and remove default ([#1357](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1357))
+* resource/gitlab_project_access_token: Support `read_registry` and `write_registry` as valid scopes ([#1289](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1289))
+* resource/gitlab_application_settings: Add `group_owners_can_manage_default_branch_protection` attribute ([#1334](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1334))
+* resource/gitlab_user: Suppress undesired diff for `skip_confirmation` attribute ([#1339](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1339))
+* resource/gitlab_group: Add `extra_shared_runners_minutes_limit` attribute ([#1232](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1232))
+* resource/gitlab_group: Add `membership_lock` attribute ([#1232](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1232))
+* resource/gitlab_group: Add `shared_runners_minutes_limit` attribute ([#1232](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1232))
+* datasource/gitlab_group: Add `extra_shared_runners_minutes_limit` attribute ([#1232](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1232))
+* datasource/gitlab_group: Add `membership_lock` attribute ([#1232](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1232))
+* datasource/gitlab_group: Add `shared_runners_minutes_limit` attribute ([#1232](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1232))
+
+## 3.19.0 (2022-11-10)
+
+This release was tested against GitLab 15.1, 15.2 and 15.3 for both CE and EE.
+
+This is the first release from the [new project on GitLab](https://gitlab.com/gitlab-org/terraform-provider-gitlab).
+
+FEATURES
+
+* **New Resource:** `gitlab_service_emails_on_push` ([#1305](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1305))
+
+IMPROVEMENTS:
+
+* resource/gitlab_project: Add `suggestion_commit_message` attribute ([#1249](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1249))
+* datasource/gitlab_project: Add `suggestion_commit_message` attribute ([#1249](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1249))
+* datasource/gitlab_projects: Add `suggestion_commit_message` attribute ([#1249](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1249))
+* resource/gitlab_branch_protection: Support `no one` in `unprotect_access_level` ([#1278](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1278))
+
+BUG FIXES:
+
+* resource/gitlab_repository_file: Fix check if file exists during read ([#1260](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/merge_requests/1260))
+
 ## 3.18.0 (2022-09-05)
 
 This release was tested against GitLab 15.1, 15.2 and 15.3 for both CE and EE.
 
-FEATURES
+FEATURES:
 
 * **New Resource:** `gitlab_group_saml_link` ([#1243](https://github.com/gitlabhq/terraform-provider-gitlab/pull/1243))
 

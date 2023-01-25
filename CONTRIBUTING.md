@@ -2,7 +2,8 @@
 
 Thank you for contributing to this provider! :tada: :heart: :trophy:
 
-Generally we accept any change that adds or changes a Terraform resource that is in line with the [GitLab API](https://docs.gitlab.com/ee/api/api_resources.html). It is always best to [open an issue](https://github.com/gitlabhq/terraform-provider-gitlab/issues/new/choose) before starting on a change.
+Generally we accept any change that adds or changes a Terraform resource that is in line with the [GitLab API](https://docs.gitlab.com/ee/api/api_resources.html). 
+It is always best to [open an issue](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/issues/new) before starting on a change.
 
 ## Getting Started
 
@@ -54,6 +55,149 @@ Importer: &schema.ResourceImporter{
 
 See the [importer state function docs](https://www.terraform.io/plugin/sdkv2/resources/import#importer-state-function) for more details.
 
+#### Inline test configuration
+
+We prefer to inline the test Terraform configuration in acceptance tests instead of returning the configuration from a dedicated function.
+
+We make exceptions for large resource configurations and in places where there is a lot of configuration reuse. 
+However, because we prefer to give each configuration a new function, there is very little reuse at present.
+
+| Pros                                                          | Cons                                                                                                                |
+|---------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| Easier to review when the configuration is near the related tests | Large configurations can be hard to read | 
+
+**Desired:**
+
+```go
+Steps: []resource.TestStep{
+	{
+		Config: fmt.Sprintf(`
+            resource "gitlab_instance_variable" "test" {
+              key           = "key_%[1]s"
+              value         = "value-%[1]s"
+              variable_type = "file"
+              masked        = false
+            }
+        `, rString),
+		Check: ... // snip
+	}
+```
+
+**Undesired:**
+
+```go
+Steps: []resource.TestStep{
+	{
+		Config: testAccGitlabInstanceVariableConfig(rString),
+		Check: ... // snip
+        }
+
+func testAccGitlabInstanceVariableConfig(rString string) string {
+	return fmt.Sprintf(`
+resource "gitlab_instance_variable" "test" {
+  key           = "key_%[1]s"
+  value         = "value-%[1]s"
+  variable_type = "file"
+  masked        = false
+}
+`, rString)
+}
+```
+
+#### Add only resource or data source being tested to test configuration
+
+We prefer to add only the resource or data source being tested to the acceptance test configuration instead of 
+adding all required resources to the test configuration.
+
+| Pros                                                        | Cons                                                                                 |
+|-------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| Allows us to use CheckDestroy correctly (see #205 (closed)) | Integration of multiple resources not tested (low risk, because of clear interfaces) |
+| Less code to review                                         |                                                                                      |
+| Isolates issues                                             |                                                                                      |
+| Faster runtime (fewer API calls)                            |
+
+**Desired:**
+
+```hcl
+resource "gitlab_managed_license" "test" {
+  project         = %d
+  name            = "MIT"
+  approval_status = "%s"
+}
+```
+
+The `testGitLabClient` can be used to create a test project. The [`helper_test.go`](internal/provider/helper_test.go) file
+contains many functions to help create test resources. For the example above, a test project you can create the required test project with the following code:
+
+```go
+testProject := testAccCreateProject(t)
+
+// now you can inject the project id using fmt.Sprintf and testProject.ID
+```
+
+**Undesired:**
+
+```hcl
+resource "gitlab_project" "test" {
+  name = "foo-%d"
+  description = "Terraform acceptance tests"
+}
+
+resource "gitlab_managed_license" "test" {
+  project         = "${gitlab_project.test.id}"
+  name            = "MIT"
+  approval_status = "%s"
+}
+```
+
+#### Use Import Verification test steps
+
+We use `Import Verify` test steps whenever possible to check if the created resource can be imported.
+The benefit of this approach is that the Terraform Acceptance Testing framework does all the validation, so we don't have to do any manual checks.
+
+The framework does the following:
+
+1. Re-runs `terraform plan` after each step and fails if the plan is not empty for the same config [(source)](https://www.terraform.io/plugin/sdkv2/best-practices/testing#built-in-patterns). 
+2. Using `ImportStateVerify`, the framework ensures that the state is the same before and after importing,
+bypassing any DiffSuppressFunc or CustomizeDiff [(source)](https://github.com/hashicorp/terraform-plugin-sdk/blob/2c03a32a9d1be63a12eb18aaf12d2c5270c42346/helper/resource/testing.go#L482). This is equivalent to checking the state and upstream resource manually.
+
+| Pros                                                                                                                                                               | Cons                                             |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| No need to write a dedicated "CheckExists" function for each resource                                                                                              | Please [open an issue](/issues) if you find one! |
+| No need to write a dedicated "CheckAttributes" function for each resource (a common sore spot for copy-paste bugs and neglecting new attributes)                   |                                                  | 
+| Encourages pragmatic testing using the framework's builtin check functions where necessary, especially for checking computed attributes which we routinely neglect |                                                  |
+| Faster runtime (fewer API calls)                                                                                                                                   |                                                  |
+
+**Desired**:
+
+```go
+{
+	Config: `<config>`,
+	// Check computed and default attributes.
+	Check: resource.TestCheckResourceAttrSet("gitlab_foo.test", "bar"),
+},
+{
+	ResourceName:      "gitlab_foo.test",
+	ImportState:       true,
+	ImportStateVerify: true,
+},
+```
+
+**Undesired:**
+
+```go 
+{
+	Config: `<config>`,
+	Check: resource.ComposeTestCheckFunc(
+		testAccCheckGitlabFooExists("gitlab_foo.foo", &foo),
+		testAccCheckGitlabFooAttributes(&foo, &testAccGitlabFooExpectedAttributes{
+			Foo: "bar",
+			Baz:  123,
+		}),
+	),
+},
+```
+
 #### Documentation
 
 Documentation in [/docs](/docs) is auto-generated by [terraform-plugin-docs](https://github.com/hashicorp/terraform-plugin-docs) based on code descriptions and [examples](/examples). Generation runs during `make reviewable`. You can use the [Terraform doc preview tool](https://registry.terraform.io/tools/doc-preview) if you would like to preview the generated documentation.
@@ -77,8 +221,18 @@ You'll first need [Go](http://www.golang.org) installed on your machine (version
    $ make build
    ```
 
+To do some experiments you can use the setup in the `playground` folder.
+It contains a prepared `.terraformrc` file which can be used to leverage the previously
+built provider:
 
-You can also install the provider locally so that you can use it with Terraform experimentally.
+```sh
+cd playground
+export TF_CLI_CONFIG_FILE=.terraformrc
+terraform plan
+```
+
+You can also install the provider to the system so that you can use from any configuration
+without the `.terraformrc`.
 Run one of the following `make` commands depending on what is correct for your platform:
 
 ```sh
@@ -106,6 +260,11 @@ terraform {
   }
 }
 ```
+
+### M1/M2 Environments
+
+The apple silicon environments currently have an issue where the local GitLab container will not start to run tests. We recommend that you use GitPod for developing the 
+provider until this issue is resolved. If you manage to get a mac environment working properly, please let us know by creating an issue!
 
 ### Use a Remote Environment via GitPod
 
@@ -217,7 +376,7 @@ $ make testacc GITLAB_TOKEN=example123 GITLAB_BASE_URL=https://example.com/api/v
   Then run the desired Go test as you would normally from your IDE, but configure your run configuration to set these environment variables:
 
   ```
-  GITLAB_TOKEN=ACCTEST1234567890123
+  GITLAB_TOKEN=glpat-ACCTEST1234567890123
   GITLAB_BASE_URL=http://127.0.0.1:8080/api/v4
   TF_ACC=1
   ```
@@ -226,3 +385,79 @@ $ make testacc GITLAB_TOKEN=example123 GITLAB_BASE_URL=https://example.com/api/v
 
   Refer to [HashiCorp's testing guide](https://www.terraform.io/docs/extend/testing/index.html)
   and [HashiCorp's testing best practices](https://www.terraform.io/docs/extend/best-practices/testing.html).
+
+## Release Workflow
+
+After the migration of the GitLab Terraform Provider to GitLab, 
+[we've decided](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/issues/1331) to
+use the same release cadence as [GitLab](https://about.gitlab.com/releases/).
+
+Which means that:
+
+* Every 22nd of the month a new minor (`X.Y+1`) release is published.
+* Security and Bug Fix releases (`X.Y.Z+1`) will be publish on demand.
+* Once a year on 22nd of May a new major (`X+1`) release is published.
+
+Note, that the compatibility between a provider release and GitLab itself **cannot** be inferred from the 
+release version. That is, a release `15.7` of the provider might be compatible with `15.4`, `15.5`, `15.6` 
+and even future GitLab releases.
+
+This workflow has been introduced with the GitLab %15.7 Milestone in December 2022.
+
+### Release Scoping 
+
+The actions in the bullet points below allow us to plan the scope of releases and track changes over time.
+
+* Issues and Merge Requests are assigned with a Milestone that they were implemented in. 
+* Every [Release](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/releases) has a Milestone assigned.
+
+
+## Release Setup
+
+This chapter describes the setup we have in place to successfully release a Terraform Provider release built on GitLab.com to the official [Terraform Provider Registry](https://registry.terraform.io/).
+
+### Rational
+
+The "normal" process to release and publish a Terraform Provider to the Terraform Registry is documented by HashiCorp [here](https://developer.hashicorp.com/terraform/tutorials/providers/provider-release-publish). 
+The problem we are facing is that publishing to the Terraform Registry is _only_ possible from GitHub, because the Terraform Registry fetches the release assets from a GitHub release and partly from the source code (the documentation).
+
+The GitLab Terraform Provider is naturally hosted on GitLab.com, thus we are not able to use the "normal" process from HashiCorp, but a little additional workaround.
+
+### Setup
+
+As outlined in the [Rational](#Retional) only GitHub is supported to publish to the Terraform Registry. 
+Given that limitation, we still use the old GitHub repository at https://gitlab.com/gitlab-org/terraform-provider-gitlab as a proxy to release the provider. 
+The setup looks like this:
+
+<div class="center">
+
+```mermaid
+sequenceDiagram
+    GitLab->>GitHub: push release and docs
+    GitHub->>Registry: webhook to notify about new release
+    Registry-->>GitHub: fetch release and docs and make available
+```
+</div>
+
+#### GitLab repository
+
+The GitLab repository is a complete Terraform Provider source code repository, including the provider code itself, 
+acceptance tests and a GitLab pipeline configuration to lint, build, test and release the provider. 
+During a provider release not only a release in the GitLab project is created, but it's also pushed via REST API to GitHub. 
+In addition, the documentation is committed and pushed to the GitHub repository.
+The GitLab pipeline is authenticated using the `GITHUB_TOKEN_FOR_SYNC` environment variable. 
+It contains a [fine-grainted personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token#creating-a-fine-grained-personal-access-token) 
+which only has `Contents` `read-write` permissions to the GitHub repository.
+
+#### GitHub repository
+
+The GitHub repository only contains a [`README.md`](https://gitlab.com/gitlab-org/terraform-provider-gitlab/blob/main/README.md) 
+file with an information that the actual provider is located on GitLab, a GitHub Action workflow to lock down the repository, 
+and the committed release documentation. As described in the [GitLab repository](#GitLab-repository) section the GitHub repository 
+also contains proxy releases and has a webhook installed to notify the Terraform Registry about new releases.
+
+##### GitHub repository lock down
+
+The GitHub repository is locked down which means that generally every option to contribute to it is disabled. 
+Unfortunately, Pull Requests cannot be disabled so that we have to use the [`repo-lockdown`](https://github.com/marketplace/actions/repo-lockdown) action. 
+It'll auto-close every PR with a comment that we only accept contributions in our GitLab.com repository.
